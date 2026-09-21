@@ -1,0 +1,562 @@
+/* ========== 补充Tailwind CSS样式 ========== */
+
+/* 星空背景效果 */
+.stars {
+    background-image: 
+        radial-gradient(2px 2px at 20px 30px, white, transparent),
+        radial-gradient(2px 2px at 40px 70px, white, transparent),
+        radial-gradient(1px 1px at 50px 50px, white, transparent),
+        radial-gradient(1px 1px at 80px 10px, white, transparent),
+        radial-gradient(2px 2px at 130px 80px, white, transparent),
+        radial-gradient(1px 1px at 110px 60px, white, transparent);
+    background-repeat: repeat;
+    background-size: 200px 200px;
+    animation: zoom 10s infinite;
+    opacity: 0.3;
+}
+
+@keyframes zoom {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* ========== 白虎宗专用配置模态框样式 ========== */
+
+/* 配置面板样式 */
+.config-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.config-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.config-group label {
+    font-weight: bold;
+    color: #e2e8f0;
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.config-group input,
+.config-group select,
+.config-group textarea {
+    padding: 10px 14px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.4);
+    color: #e2e8f0;
+    backdrop-filter: blur(10px);
+}
+
+.config-group input:focus,
+.config-group select:focus,
+.config-group textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+}
+
+.config-group small {
+    color: #94a3b8;
+    font-size: 12px;
+    display: block;
+    margin-top: 5px;
+    line-height: 1.4;
+}
+
+#modelSelect {
+    font-size: 13px;
+}
+
+#modelSelect option {
+    padding: 8px;
+    background: #1e293b;
+    color: #e2e8f0;
+}
+
+#modelSelect option:hover {
+    background: #3b82f6;
+    color: white;
+}
+
+.config-group textarea {
+    min-height: 100px;
+    resize: vertical;
+    font-family: 'Noto Serif SC', serif;
+}
+
+/* 折叠区块样式 */
+.collapsible-section {
+    margin-top: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 15px;
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(15px);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.collapsible-section:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.collapsible-header {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    color: #e2e8f0;
+    padding: 15px 20px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.3s ease;
+    user-select: none;
+}
+
+.collapsible-header:hover {
+    background: linear-gradient(135deg, #334155 0%, #475569 100%);
+}
+
+.collapsible-header .arrow {
+    transition: transform 0.3s ease;
+    font-size: 14px;
+    color: #94a3b8;
+}
+
+.collapsible-header.collapsed .arrow {
+    transform: rotate(-90deg);
+}
+
+.collapsible-content {
+    padding: 20px;
+    max-height: 1000px;
+    opacity: 1;
+    transition: all 0.3s ease;
+}
+
+.collapsible-content.collapsed {
+    max-height: 0;
+    padding: 0 20px;
+    opacity: 0;
+    overflow: hidden;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    display: none;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-overlay.show {
+    display: block;
+    z-index: 9990;
+}
+
+.config-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 650px;
+    max-height: 90vh;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border-radius: 20px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 150px rgba(59, 130, 246, 0.1);
+    z-index: 9999;
+    display: none;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    animation: slideUp 0.4s ease;
+}
+
+.config-modal.show {
+    display: block;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+    color: white;
+    padding: 25px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    font-family: 'Noto Serif SC', serif;
+}
+
+.modal-close {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 24px;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg) scale(1.1);
+    box-shadow: 0 0 25px rgba(255, 255, 255, 0.3);
+}
+
+.modal-body {
+    padding: 25px;
+    overflow-y: auto;
+    max-height: calc(90vh - 100px);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* 按钮样式 */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: 'Noto Serif SC', serif;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.btn:hover::before {
+    left: 100%;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(59, 130, 246, 0.5);
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 25px rgba(255, 255, 255, 0.1);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(16, 185, 129, 0.4);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(239, 68, 68, 0.4);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(245, 158, 11, 0.4);
+}
+
+.btn-info {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 6px 20px rgba(6, 182, 212, 0.3);
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(6, 182, 212, 0.4);
+}
+
+/* 状态指示器 */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    background: #ef4444;
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.success {
+    background: #10b981;
+}
+
+.status-indicator.connecting {
+    background: #f59e0b;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+    .config-modal {
+        width: 95%;
+        max-width: none;
+        margin: 10px;
+        top: 10px;
+        transform: translateX(-50%);
+        left: 50%;
+        max-height: calc(100vh - 20px);
+    }
+    
+    .modal-header {
+        padding: 20px;
+    }
+    
+    .modal-header h2 {
+        font-size: 20px;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+    
+    .collapsible-header {
+        padding: 12px 15px;
+        font-size: 14px;
+    }
+    
+    .collapsible-content {
+        padding: 15px;
+    }
+}
+
+/* ========== 其他样式 ========== */
+
+/* 滚动条样式 */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thumb-white\/10::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.scrollbar-thumb-white\/10::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.scrollbar-thumb-white\/10::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+  .scrollbar-thin {
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-thumb-white\/10::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .stars {
+    opacity: 0.2;
+  }
+}
+
+/* 自定义动画 */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* 特殊颜色类 */
+.text-e6edf3 {
+  color: #e6edf3;
+}
+
+.bg-dark-cyan {
+  background-color: #3d3b4f;
+}
+
+/* 响应式容器调整 */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .h-\[90vh\] {
+    height: calc(100vh - 120px);
+  }
+}
+
+/* 状态面板特殊样式 */
+.status-panel {
+  min-height: 400px;
+}
+
+/* 游戏历史区域优化 */
+#gameHistory {
+  scrollbar-gutter: stable;
+}
+
+/* 输入框焦点效果 */
+.focus\\:border-blue-500\/50:focus {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 按钮悬停效果增强 */
+.hover\\:shadow-lg:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* 关系卡片展开动画 */
+.relationship-details {
+  transition: all 0.3s ease-out;
+}
+
+.relationship-details.hidden {
+  display: none;
+}
+
+.relationship-details:not(.hidden) {
+  display: block;
+}
+
+/* Tab切换动画 */
+.tab-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-btn:not(.active):hover {
+  transform: translateY(-1px);
+}
+
+.tab-btn.active {
+  transform: translateY(0);
+}
+
+/* 玻璃态效果增强 */
+.backdrop-blur-xl {
+  backdrop-filter: blur(16px);
+}
+
+/* 渐变边框效果 */
+.border-blue-500\/30 {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* 文字渐变效果 */
+.text-transparent {
+  color: transparent;
+}
+
+.bg-clip-text {
+  background-clip: text;
+}

@@ -1,0 +1,622 @@
+/* ========== 状态面板专用样式 - 素雅中国古风 ========== */
+
+:root {
+  /* 素雅中国风配色 */
+  --moon-white: #D8E3E7;
+  --bamboo-green: #789262;
+  --jade-green: #426666;
+  --vermilion: #9D2933;
+  --autumn-fragrance: #C9A77C;
+  --plain-white: #F0F0F4;
+  --dark-cyan: #3D3B4F;
+  --lotus-pink: #EDD1D8;
+  --ink-black: #2C2C2C;
+  --paper-yellow: #F5F1E8;
+  --mist-gray: #E8EBF0;
+  --pine-green: #5A6F5B;
+  --plum-purple: #C8A5C0;
+  --sky-blue: #B8D4E8;
+  --spring-green: #A8C89A;
+}
+
+/* ========== Tab切换按钮容器 ========== */
+#statusPanelContainer > div > div:first-child {
+  display: flex !important;
+  gap: 8px !important;
+  margin-bottom: 18px !important;
+  background: rgba(61, 59, 79, 0.15) !important;
+  border-radius: 10px !important;
+  padding: 6px !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(216, 227, 231, 0.3);
+}
+
+/* ========== Tab按钮样式 ========== */
+#statusPanelContainer button[id$="TabBtn"] {
+  flex: 1 !important;
+  padding: 10px 14px !important;
+  background: transparent !important;
+  color: #6b7280 !important;
+  border: none !important;
+  border-radius: 7px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+  position: relative;
+  backdrop-filter: blur(10px);
+}
+
+#statusPanelContainer button[id$="TabBtn"]:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+  color: var(--bamboo-green) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(120, 146, 98, 0.15);
+}
+
+/* 激活状态的Tab */
+#statusPanelContainer button[id$="TabBtn"][style*="rgba(255, 215, 0"] {
+  background: linear-gradient(135deg, var(--jade-green) 0%, var(--bamboo-green) 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(66, 102, 102, 0.25);
+}
+
+/* ========== Tab内容区域 ========== */
+#statusPanelContainer [id$="TabContent"] {
+  font-size: 13px !important;
+  color: var(--ink-black) !important;
+  line-height: 1.7 !important;
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ========== 主内容卡片 ========== */
+#statusContent > div {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(245, 241, 232, 0.6) 100%) !important;
+  border-radius: 12px !important;
+  padding: 20px !important;
+  margin-bottom: 0 !important;
+  box-shadow: 0 4px 16px rgba(66, 102, 102, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+  border: 1.5px solid rgba(216, 227, 231, 0.5) !important;
+  position: relative;
+  backdrop-filter: blur(10px);
+}
+
+/* 顶部装饰线 */
+#statusContent > div::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, 
+    transparent 0%,
+    var(--bamboo-green) 20%,
+    var(--jade-green) 50%,
+    var(--bamboo-green) 80%,
+    transparent 100%);
+  opacity: 0.6;
+  border-radius: 12px 12px 0 0;
+}
+
+/* ========== 标题样式 ========== */
+#statusContent h4 {
+  color: var(--jade-green) !important;
+  margin-bottom: 16px !important;
+  font-size: 15px !important;
+  text-align: center !important;
+  font-weight: 600 !important;
+  letter-spacing: 2px;
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.5);
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(216, 227, 231, 0.4);
+}
+
+#statusContent h5 {
+  color: var(--bamboo-green) !important;
+  margin-bottom: 10px !important;
+  font-size: 13px !important;
+  text-align: center !important;
+  font-weight: 500 !important;
+  letter-spacing: 1px;
+}
+
+/* ========== 信息区块 ========== */
+#statusContent > div > div {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-radius: 10px !important;
+  padding: 14px !important;
+  margin-bottom: 14px !important;
+  border: 1px solid rgba(216, 227, 231, 0.4) !important;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(5px);
+}
+
+#statusContent > div > div:hover {
+  background: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 4px 12px rgba(120, 146, 98, 0.1);
+  border-color: rgba(120, 146, 98, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+/* ========== 网格布局 ========== */
+#statusContent div[style*="grid-template-columns"] {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 10px !important;
+  font-size: 12px !important;
+  color: var(--ink-black) !important;
+}
+
+#statusContent div[style*="grid-template-columns"] > div {
+  padding: 6px 10px;
+  background: rgba(232, 235, 240, 0.3);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+#statusContent div[style*="grid-template-columns"] > div:hover {
+  background: rgba(120, 146, 98, 0.1);
+  transform: translateX(2px);
+}
+
+#statusContent div[style*="grid-template-columns"] strong {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* ========== 特殊值颜色 ========== */
+#statusContent span[style*="#90ee90"],
+#statusContent span[style*="#98fb98"] {
+  color: var(--spring-green) !important;
+  font-weight: 500;
+}
+
+#statusContent span[style*="#ffd700"],
+#statusContent span[style*="#daa520"] {
+  color: var(--autumn-fragrance) !important;
+  font-weight: 500;
+}
+
+#statusContent span[style*="#87ceeb"],
+#statusContent span[style*="#6bb6ff"] {
+  color: var(--sky-blue) !important;
+  font-weight: 500;
+}
+
+#statusContent span[style*="#ff6b6b"],
+#statusContent span[style*="#ff69b4"] {
+  color: var(--vermilion) !important;
+  font-weight: 500;
+}
+
+#statusContent span[style*="#ffb6c1"],
+#statusContent span[style*="#dda0dd"] {
+  color: var(--plum-purple) !important;
+  font-weight: 500;
+}
+
+#statusContent span[style*="#f0e68c"],
+#statusContent span[style*="#ffebcd"] {
+  color: #8a7a5e !important;
+}
+
+/* ========== 人际关系卡片 ========== */
+.relationship-card {
+  border-radius: 10px !important;
+  padding: 12px !important;
+  margin-bottom: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  border: 1.5px solid rgba(200, 165, 192, 0.4) !important;
+  backdrop-filter: blur(10px);
+}
+
+.relationship-card:hover {
+  box-shadow: 0 6px 18px rgba(200, 165, 192, 0.2) !important;
+  border-color: var(--plum-purple) !important;
+  transform: translateX(3px);
+}
+
+/* 关系卡片内的按钮 */
+.relationship-card button {
+  background: linear-gradient(135deg, var(--vermilion) 0%, #8B1F28 100%) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 5px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+}
+
+.relationship-card button:hover {
+  background: linear-gradient(135deg, #B82C38 0%, #A3222E 100%) !important;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(157, 41, 51, 0.3);
+}
+
+/* 关系卡片标题 */
+.relationship-card > div:first-child > div:first-child > div:nth-child(2) {
+  font-weight: 600 !important;
+  color: var(--jade-green) !important;
+  font-size: 13px !important;
+}
+
+/* 好感度标签 */
+.relationship-card > div:first-child > div:last-child {
+  color: var(--vermilion) !important;
+  font-size: 11px !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  padding: 4px 10px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(157, 41, 51, 0.3) !important;
+  font-weight: 500;
+}
+
+/* 关系描述 */
+.relationship-card > div:nth-child(2) {
+  font-size: 11px !important;
+  color: #6b7280 !important;
+  margin-bottom: 6px !important;
+  font-style: italic;
+}
+
+/* 关系详情展开区域 */
+.relationship-details {
+  display: none ;
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+  border-top: 1px solid rgba(200, 165, 192, 0.3) !important;
+  font-size: 13px !important;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.relationship-details > div {
+  margin-bottom: 6px !important;
+  line-height: 1.6;
+}
+
+.relationship-details strong {
+  font-weight: 500;
+}
+
+.relationship-details span {
+  color: var(--ink-black) !important;
+}
+
+/* 身体详情特殊区域 */
+.relationship-details > div[style*="rgba(255, 192, 203"] {
+  margin-top: 10px !important;
+  padding: 12px !important;
+  background: linear-gradient(135deg, rgba(237, 209, 216, 0.3) 0%, rgba(200, 165, 192, 0.2) 100%) !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(200, 165, 192, 0.4) !important;
+}
+
+.relationship-details > div[style*="rgba(255, 192, 203"] strong:first-child {
+  margin-bottom: 8px !important;
+  display: block !important;
+  font-size: 12px;
+  text-align: center;
+  letter-spacing: 1px;
+}
+
+.relationship-details > div[style*="rgba(255, 192, 203"] > div {
+  margin-bottom: 4px !important;
+  font-size: 12px !important;
+}
+
+/* 历史记录区域 */
+.relationship-details > div:last-child {
+  margin-top: 10px !important;
+}
+
+.relationship-details > div:last-child strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--bamboo-green) !important;
+}
+
+.relationship-details > div:last-child > div > div {
+  margin-bottom: 4px !important;
+  color: var(--ink-black) !important;
+  padding-left: 12px;
+  position: relative;
+}
+
+.relationship-details > div:last-child > div > div::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  background: var(--autumn-fragrance);
+  border-radius: 50%;
+}
+
+/* 展开提示 */
+.relationship-card > div:last-child {
+  text-align: center !important;
+  margin-top: 8px !important;
+  font-size: 10px !important;
+  color: var(--bamboo-green) !important;
+  opacity: 0.7;
+  letter-spacing: 0.5px;
+}
+
+/* ========== 动态世界样式 ========== */
+.dynamic-world-entry {
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1.5px solid rgba(216, 227, 231, 0.4) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  margin-bottom: 14px !important;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.dynamic-world-entry:hover {
+  box-shadow: 0 6px 20px rgba(66, 102, 102, 0.12);
+  border-color: var(--bamboo-green) !important;
+}
+
+.dynamic-world-header {
+  background: linear-gradient(135deg, var(--jade-green) 0%, var(--bamboo-green) 100%) !important;
+  color: white !important;
+  padding: 12px 16px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.dynamic-world-floor {
+  font-weight: 500 !important;
+  font-size: 13px !important;
+}
+
+.dynamic-world-time {
+  font-size: 11px !important;
+  opacity: 0.9 !important;
+}
+
+.dynamic-world-content {
+  padding: 16px !important;
+  font-size: 13px !important;
+  line-height: 1.8 !important;
+  color: #4a4a4a !important;
+}
+
+.dynamic-world-controls {
+  padding: 10px 16px !important;
+  border-top: 1px solid rgba(216, 227, 231, 0.4) !important;
+  background: rgba(232, 235, 240, 0.2) !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+.dynamic-world-controls button {
+  background: rgba(120, 146, 98, 0.15) !important;
+  color: var(--bamboo-green) !important;
+  border: 1px solid rgba(120, 146, 98, 0.3) !important;
+  padding: 6px 12px !important;
+  border-radius: 5px !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  font-size: 12px !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dynamic-world-controls button:hover {
+  background: rgba(120, 146, 98, 0.25) !important;
+  border-color: var(--bamboo-green) !important;
+  transform: scale(1.05);
+}
+
+/* ========== 思维链样式 ========== */
+.reasoning-container {
+  margin-bottom: 12px !important;
+  background: rgba(232, 235, 240, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(216, 227, 231, 0.4);
+}
+
+.reasoning-header {
+  cursor: pointer !important;
+  padding: 10px 14px !important;
+  background: rgba(120, 146, 98, 0.1) !important;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reasoning-header:hover {
+  background: rgba(120, 146, 98, 0.2) !important;
+}
+
+.reasoning-header span:first-child {
+  color: var(--jade-green) !important;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.reasoning-toggle {
+  font-size: 10px !important;
+  color: #6b7280 !important;
+}
+
+.reasoning-content {
+  padding: 14px !important;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.reasoning-content > div {
+  margin-bottom: 10px !important;
+  padding: 10px !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  border-radius: 6px !important;
+  border-left: 3px solid var(--bamboo-green);
+}
+
+.reasoning-content .reasoning-header {
+  font-size: 12px !important;
+  color: var(--jade-green) !important;
+  font-weight: 500 !important;
+  margin-bottom: 6px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  cursor: default !important;
+}
+
+.reasoning-text {
+  font-size: 11px !important;
+  line-height: 1.7 !important;
+  color: #4a4a4a !important;
+}
+
+.reasoning-chain {
+  list-style: none !important;
+  padding-left: 0 !important;
+  margin: 0 !important;
+}
+
+.reasoning-chain li {
+  font-size: 11px !important;
+  line-height: 1.7 !important;
+  color: #4a4a4a !important;
+  margin-bottom: 4px !important;
+  padding-left: 14px !important;
+  position: relative;
+}
+
+.reasoning-chain li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 4px;
+  height: 4px;
+  background: var(--autumn-fragrance);
+  border-radius: 50%;
+}
+
+/* ========== 道具容器 ========== */
+#itemsContainer {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  border: 1px dashed rgba(216, 227, 231, 0.6);
+}
+
+#itemsContainer > div > div:first-child {
+  font-size: 15px !important;
+  margin-bottom: 10px !important;
+  color: var(--jade-green) !important;
+  font-weight: 500;
+}
+
+#itemsContainer > div > div:last-child {
+  font-size: 12px !important;
+  color: #9ca3af !important;
+  font-style: italic !important;
+}
+
+/* ========== 移动端优化 - 禁用模糊效果 ========== */
+@media (max-width: 640px) {
+  /* 禁用所有模糊效果以提高移动端清晰度 */
+  #statusPanelContainer > div > div:first-child,
+  #statusPanelContainer button[id$="TabBtn"],
+  #statusContent > div,
+  #statusContent > div > div,
+  .relationship-card,
+  .dynamic-world-entry {
+    backdrop-filter: none !important;
+  }
+  
+  /* 简化背景，使用纯色替代渐变 */
+  #statusContent > div {
+    background: rgba(255, 255, 255, 0.9) !important;
+  }
+  
+  #statusContent > div > div {
+    background: rgba(255, 255, 255, 0.7) !important;
+  }
+  
+  /* 禁用可能影响性能的transform动画 */
+  #statusPanelContainer button[id$="TabBtn"]:hover,
+  #statusContent > div > div:hover,
+  .relationship-card:hover,
+  .dynamic-world-controls button:hover {
+    transform: none !important;
+  }
+  
+  #statusContent div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  #statusPanelContainer > div > div:first-child {
+
+    gap: 6px !important;
+  }
+  
+  #statusPanelContainer button[id$="TabBtn"] {
+    width: 100%;
+  }
+}
+.attr-btn{color:#333}
+.difficulty-card.selected,.gender-card.selected{color: #333;}
+
+/* ========== 性别选择卡片样式 ========== */
+.gender-card {
+  border: 2px solid #ddd;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.gender-card:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+}
+
+.gender-card.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+/* ========== 难度选择卡片样式 ========== */
+.difficulty-card {
+  border: 2px solid #ddd;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.difficulty-card:hover {
+  border-color: #667eea;
+  background: #f8f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+.difficulty-card.selected {
+  border-color: #667eea;
+  background: #f0f4ff;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+  transform: translateY(-2px);
+}

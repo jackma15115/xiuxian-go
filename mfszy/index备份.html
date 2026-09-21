@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>魔法使之夜 - AI 共创系统 (Fixed)</title>
+    
+    <!-- 字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+SC:wght@300;400;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        serif: ['"Noto Serif SC"', 'serif'],
+                        cinzel: ['"Cinzel"', 'serif'],
+                    },
+                    animation: {
+                        'float-slow': 'float-slow 15s ease-in-out infinite',
+                        'spin-slow': 'spin-slow 60s linear infinite',
+                        'shine': 'shine 1s',
+                        'fade-in-up': 'fade-in-up 0.8s ease-out forwards',
+                        'slide-up': 'slide-up 0.4s ease-out forwards',
+                    },
+                    keyframes: {
+                        'float-slow': {
+                            '0%, 100%': { transform: 'translateY(0) scale(1)' },
+                            '50%': { transform: 'translateY(-20px) scale(1.05)' },
+                        },
+                        'spin-slow': {
+                            'from': { transform: 'rotate(0deg)' },
+                            'to': { transform: 'rotate(360deg)' },
+                        },
+                        'shine': {
+                            '100%': { left: '125%' },
+                        },
+                        'fade-in-up': {
+                            'from': { opacity: '0', transform: 'translateY(20px)' },
+                            'to': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        'slide-up': {
+                            'from': { opacity: '0', transform: 'translateY(10px)' },
+                            'to': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- React & Babel -->
+    <script type="importmap">
+        {
+            "imports": {
+                "react": "https://esm.sh/react@18.2.0",
+                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+                "lucide-react": "https://esm.sh/lucide-react@0.300.0"
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            background-color: #050b14;
+            color: #e2e8f0;
+            font-family: 'Noto Serif SC', serif;
+            overflow: hidden;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+        input[type="file"]::file-selector-button { display: none; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            Sparkles, Moon, Send, X, User, Zap, Box, Heart, Shield, 
+            Activity, Scroll, PenTool, Database, Upload, FileJson, RefreshCw, Info, Eye
+        } from 'lucide-react';
+
+        // --- 静态配置 ---
+        const INITIAL_GAME_STATE = {
+            basic: {
+                name: '静希草十郎',
+                gender: '男',
+                age: '17',
+                personality: ['天然呆', '坚韧', '朴实', '野性直觉'],
+                title: '转学生 / 见习魔术师',
+                location: '三咲市・久远寺洋馆・起居室',
+                day: 'Day 1',
+                time: '23:45',
+                background: '从与世隔绝的深山来到现代都市的少年。虽然对常识一窍不通，但拥有锻炼到极致的肉体和异常敏锐的直觉。'
+            },
+            status: { hp: 100, mp: 20, san: 90 },
+            attributes: { str: 'A', end: 'B', agi: 'B', mgi: 'E', lck: 'A', np: '?' }, 
+            inventory: ['绷带', '打工传单', '神秘的护身符'],
+            magic: ['强化肉体 (本能)', '山之呼吸'],
+            relationships: [
+                { id: 'aoko', name: '苍崎青子', value: 30, status: '警戒', intro: '现存于世的魔法使之一。', impression: '“这个转学生... 为什么会出现在这种地方？”' },
+                { id: 'alice', name: '久远寺有珠', value: 10, status: '冷漠', intro: '隐居在森林洋馆中的魔女。', impression: '“...多余的存在。”' }
+            ],
+            faction: { name: '中立', standing: '无所属', desc: '尚未介入三咲市的灵脉争夺。' },
+            history: ['意外闯入了位于深山的洋馆。']
+        };
+
+        const DEFAULT_SYSTEM_PROMPT = `你是一个基于《魔法使之夜》世界观的TRPG游戏主持人(DM)。
+你的任务是与玩家共同构建一个关于“魔法、奇迹与日常”的全新故事。
+
+【核心原则】
+1. **世界观**：严守Type-Moon/奈须蘑菇风格。神秘应当是隐秘、危险且优雅的。
+2. **全知扮演**：操控所有NPC（青子、有珠、橙子等）。
+3. **叙事模式**：第三人称或第二人称。包含环境、动作、心理描写。
+4. **状态管理**：实时更新HP/MP、物品、好感度、对主角的看法(impression)。
+
+【当前场景】
+玩家档案：{{PLAYER_INFO}}
+当前状态：{{GAME_STATE}}
+已知技能：{{PLAYER_SKILLS}}
+
+【知识库 (DLC)】
+{{KNOWLEDGE_BASE}}
+
+请严格遵守 JSON 输出协议来更新游戏状态。输出格式：
+{回复内容}
+---STATE---
+{更新后的完整玩家状态JSON}`;
+
+        // --- 基础组件 ---
+        const StarField = () => (
+            <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(56,189,248,0.1)_1px,transparent_1px)] bg-[length:40px_40px] animate-float-slow opacity-50"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(167,139,250,0.1)_2px,transparent_2px)] bg-[length:120px_120px] opacity-30"></div>
+            </div>
+        );
+
+        const Typewriter = ({ text }) => {
+            const [display, setDisplay] = useState('');
+            useEffect(() => {
+                let i = 0;
+                setDisplay('');
+                const timer = setInterval(() => {
+                    if (i < text.length) {
+                        setDisplay(prev => prev + text.charAt(i));
+                        i++;
+                    } else { clearInterval(timer); }
+                }, 15);
+                return () => clearInterval(timer);
+            }, [text]);
+            return <span className="whitespace-pre-wrap leading-relaxed">{display}</span>;
+        };
+
+        const TagInput = ({ tags, onAdd, onRemove, placeholder, icon: Icon }) => {
+            const [input, setInput] = useState('');
+            return (
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded px-3 py-2 focus-within:border-blue-400/50">
+                        <Icon className="w-4 h-4 text-white/30" />
+                        <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if(e.key==='Enter' && input.trim()) { onAdd(input.trim()); setInput(''); }}} placeholder={placeholder} className="bg-transparent border-none outline-none text-sm text-white flex-1 placeholder-white/20" />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {tags.map((tag, i) => (
+                            <span key={i} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-900/20 border border-blue-400/20 rounded text-xs text-blue-200">
+                                {tag} <button onClick={() => onRemove(tag)}><X className="w-3 h-3" /></button>
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const HexChart = ({ attrs }) => {
+            const attrToVal = (rank) => {
+                const map = { 'E': 20, 'D': 35, 'C': 50, 'B': 65, 'A': 80, 'A+': 90, 'EX': 100, '?': 10 };
+                if (typeof rank === 'number') return rank;
+                return map[rank] || 20;
+            };
+            const points = ['str', 'end', 'agi', 'mgi', 'lck', 'np'].map((key, i) => {
+                const val = attrToVal(attrs[key]);
+                const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+                const r = (val / 100) * 40;
+                return `${50 + r * Math.cos(angle)},${50 + r * Math.sin(angle)}`;
+            }).join(' ');
+            return (
+                <div className="relative w-full aspect-square max-w-[120px] mx-auto opacity-80 hover:opacity-100 transition-opacity">
+                    <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full stroke-white/10 fill-none stroke-[0.5]">
+                        <polygon points="50,10 85,30 85,70 50,90 15,70 15,30" />
+                        <line x1="50" y1="50" x2="50" y2="10" /> <line x1="50" y1="50" x2="85" y2="30" /> <line x1="50" y1="50" x2="85" y2="70" />
+                        <line x1="50" y1="50" x2="50" y2="90" /> <line x1="50" y1="50" x2="15" y2="70" /> <line x1="50" y1="50" x2="15" y2="30" />
+                    </svg>
+                    <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full drop-shadow-[0_0_5px_rgba(59,130,246,0.5)]">
+                        <polygon points={points} className="fill-blue-500/30 stroke-blue-400 stroke-1 animate-pulse" />
+                    </svg>
+                </div>
+            );
+        };
+
+        // --- 复杂组件提取 (修复焦点丢失问题的关键) ---
+
+        const CharacterDetailModal = ({ char, onClose }) => (
+            <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+                <div className="bg-[#0a0f1e] border border-blue-500/30 rounded-xl max-w-md w-full shadow-[0_0_60px_rgba(30,58,138,0.4)] relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+                    <button onClick={onClose} className="absolute top-4 right-4 text-white/50 hover:text-white z-10"><X className="w-6 h-6" /></button>
+                    <div className="p-8">
+                        <div className="flex flex-col items-center mb-6">
+                            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-slate-700 to-black border border-white/20 flex items-center justify-center text-3xl shadow-lg mb-4">👤</div>
+                            <h2 className="text-2xl font-bold text-white font-serif tracking-widest">{char.name}</h2>
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] border ${char.value > 50 ? 'border-pink-500/50 text-pink-300 bg-pink-500/10' : 'border-slate-500/50 text-slate-400 bg-slate-500/10'}`}>{char.status} (好感: {char.value})</span>
+                            </div>
+                        </div>
+                        <div className="space-y-6">
+                            <div><h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Info className="w-3 h-3" /> 档案资料</h3><p className="text-sm text-white/70 leading-relaxed bg-white/5 p-3 rounded border border-white/5">{char.intro || "暂无情报"}</p></div>
+                            <div><h3 className="text-xs font-bold text-purple-400 uppercase tracking-widest mb-2 flex items-center gap-2"><Eye className="w-3 h-3" /> 对主角的看法</h3><p className="text-sm text-white/80 italic leading-relaxed bg-purple-900/10 p-3 rounded border border-purple-500/20 border-l-4 border-l-purple-500">{char.impression || "（无特别印象）"}</p></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const DlcModal = ({ show, onClose, onImportDLC, dlcList }) => {
+            if (!show) return null;
+
+            return (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+                    <div className="bg-[#0a0f1e] border border-blue-500/20 rounded-xl w-full max-w-2xl shadow-[0_0_50px_rgba(30,58,138,0.3)] flex flex-col max-h-[85vh]">
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/20">
+                            <h2 className="text-xl font-serif text-white flex items-center gap-2">DLC 知识库管理</h2>
+                            <button onClick={onClose} className="text-white/50 hover:text-white"><X className="w-5 h-5" /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto flex-1 space-y-8">
+                            <div>
+                                <h3 className="text-sm font-bold text-blue-300 mb-4">导入 DLC</h3>
+                                <div className="bg-blue-900/10 border border-blue-500/20 rounded p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-sm font-bold text-blue-300">导入 DLC</h3>
+                                        <Upload className="w-4 h-4 text-blue-400" />
+                                    </div>
+                                    <label className="block w-full cursor-pointer bg-black/40 border border-dashed border-white/20 hover:border-blue-400/50 rounded p-4 text-center transition-colors">
+                                        <span className="text-xs text-white/60">点击选择 JSON 文件</span>
+                                        <input type="file" accept=".json" onChange={onImportDLC} className="hidden" />
+                                    </label>
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-xs text-blue-300/70 uppercase tracking-wider mb-2">已激活 ({dlcList.length})</h3>
+                                <div className="space-y-2">
+                                    {dlcList.map((dlc, i) => (
+                                        <div key={i} className="flex items-center justify-between bg-white/5 px-3 py-2 rounded border border-white/10">
+                                            <span className="text-sm font-bold text-white">{dlc.name}</span>
+                                            <FileJson className="w-4 h-4 text-blue-400" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-6 border-t border-white/10 flex justify-end">
+                            <button onClick={onClose} className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded shadow-lg shadow-blue-900/20">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+        const Sidebar = ({ gameState, onCharClick }) => (
+            <div className="w-full h-full overflow-y-auto pr-2">
+                <div className="flex items-center gap-3 mb-4 p-3 bg-gradient-to-r from-blue-900/30 to-transparent rounded-lg border-l-2 border-blue-400">
+                    <div className="w-12 h-12 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center text-xl shadow-inner">🧙‍♂️</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center"><div className="text-sm font-bold text-white truncate">{gameState.basic.name}</div><span className="text-[10px] text-white/40 border border-white/10 px-1 rounded">{gameState.basic.age}岁</span></div>
+                        <div className="text-xs text-white/50 truncate">{gameState.basic.title}</div>
+                    </div>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/5 text-blue-300/80 font-serif text-xs tracking-widest uppercase"><Activity className="w-3 h-3"/> 身体状态</div>
+                    <div className="space-y-2 text-xs">
+                        {[{ l: 'HP', v: gameState.status.hp, c: 'bg-red-500' }, { l: 'MP', v: gameState.status.mp, c: 'bg-blue-500' }, { l: 'SAN', v: gameState.status.san, c: 'bg-purple-500' }].map(s => (
+                            <div key={s.l} className="flex items-center gap-2"><span className="w-6 text-white/50 font-mono">{s.l}</span><div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden"><div className={`h-full ${s.c} shadow-[0_0_5px_currentColor] transition-all duration-1000`} style={{ width: `${s.v}%` }} /></div><span className="w-6 text-right text-white/70">{s.v}</span></div>
+                        ))}
+                    </div>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/5 text-blue-300/80 font-serif text-xs tracking-widest uppercase"><Zap className="w-3 h-3"/> 身体能力</div>
+                    <div className="flex items-center justify-between"><HexChart attrs={gameState.attributes} /><div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-white/60 font-mono">{Object.entries(gameState.attributes).map(([k, v]) => <div key={k}>{k.toUpperCase()}: <span className="text-blue-300">{v}</span></div>)}</div></div>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/5 text-blue-300/80 font-serif text-xs tracking-widest uppercase"><Box className="w-3 h-3"/> 持有物品</div>
+                    <div className="grid grid-cols-3 gap-2">{gameState.inventory.map((item, i) => <div key={i} className="aspect-square bg-white/5 rounded border border-white/5 flex items-center justify-center text-[10px] text-center p-1 cursor-help hover:bg-white/10 break-all overflow-hidden" title={item}><span className="line-clamp-2">{item}</span></div>)}</div>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/5 text-blue-300/80 font-serif text-xs tracking-widest uppercase"><Heart className="w-3 h-3"/> 人际关系 (点击查看)</div>
+                    <div className="space-y-3">{gameState.relationships.map((rel, i) => <div key={i} onClick={() => onCharClick(rel)} className="cursor-pointer hover:bg-white/5 p-1 rounded transition-colors"><div className="flex justify-between text-xs mb-1"><span className="text-white/80 font-bold">{rel.name}</span><span className={`text-[10px] px-1 rounded ${rel.value > 50 ? 'bg-pink-500/20 text-pink-300' : 'bg-slate-700 text-slate-400'}`}>{rel.status}</span></div><div className="h-1 bg-white/10 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-pink-500 to-purple-500" style={{ width: `${rel.value}%` }} /></div></div>)}</div>
+                </div>
+                <div className="bg-black/40 border border-white/5 rounded-lg p-3 mb-3">
+                    <div className="flex items-center gap-2 mb-2 pb-1 border-b border-white/5 text-blue-300/80 font-serif text-xs tracking-widest uppercase"><Shield className="w-3 h-3"/> 所属势力</div>
+                    <div className="text-xs text-white/70"><div className="flex justify-between mb-1"><span>组织:</span> <span className="text-blue-300">{gameState.faction.name}</span></div><div className="flex justify-between mb-1"><span>立场:</span> <span className="text-yellow-200/70">{gameState.faction.standing}</span></div></div>
+                </div>
+            </div>
+        );
+
+        const CharacterCreation = ({ gameState, setGameState, onConfirm }) => (
+            <div className="relative z-20 w-full max-w-4xl mx-auto animate-fade-in-up p-4">
+                <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-[20px] shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
+                    <div className="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-black/40">
+                        <h2 className="text-2xl font-serif text-white tracking-widest flex items-center gap-3"><PenTool className="w-5 h-5 text-blue-400" /> 角色作成</h2>
+                    </div>
+                    <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="block text-xs text-blue-300/70 mb-1">姓名</label><input type="text" value={gameState.basic.name} onChange={e => setGameState(p => ({...p, basic: {...p.basic, name: e.target.value}}))} className="w-full bg-black/40 border border-white/10 rounded px-4 py-2 text-white" /></div>
+                                <div><label className="block text-xs text-blue-300/70 mb-1">年龄</label><input type="text" value={gameState.basic.age} onChange={e => setGameState(p => ({...p, basic: {...p.basic, age: e.target.value}}))} className="w-full bg-black/40 border border-white/10 rounded px-4 py-2 text-white" /></div>
+                            </div>
+                            <div><label className="block text-xs text-blue-300/70 mb-1">性别</label><div className="flex gap-2">{['男', '女', '其他'].map(g => <button key={g} onClick={() => setGameState(p => ({...p, basic: {...p.basic, gender: g}}))} className={`flex-1 py-2 rounded border ${gameState.basic.gender === g ? 'bg-blue-600/20 border-blue-500' : 'bg-white/5 border-white/10'}`}>{g}</button>)}</div></div>
+                            <div><label className="block text-xs text-blue-300/70 mb-1">性格 (回车添加)</label><TagInput tags={gameState.basic.personality} onAdd={t => setGameState(p => ({...p, basic: {...p.basic, personality: [...p.basic.personality, t]}}))} onRemove={t => setGameState(p => ({...p, basic: {...p.basic, personality: p.basic.personality.filter(x => x !== t)}}))} placeholder="例如: 冷静" icon={Heart} /></div>
+                        </div>
+                        <div className="space-y-6">
+                            <div><label className="block text-xs text-blue-300/70 mb-1">技能 (回车添加)</label><TagInput tags={gameState.magic} onAdd={t => setGameState(p => ({...p, magic: [...p.magic, t]}))} onRemove={t => setGameState(p => ({...p, magic: p.magic.filter(x => x !== t)}))} placeholder="例如: 强化魔术" icon={Zap} /></div>
+                            <div><label className="block text-xs text-blue-300/70 mb-1">背景故事</label><textarea value={gameState.basic.background} onChange={e => setGameState(p => ({...p, basic: {...p.basic, background: e.target.value}}))} className="w-full h-32 bg-black/40 border border-white/10 rounded px-4 py-2 text-sm text-white" /></div>
+                            <div className="flex justify-end"><button onClick={onConfirm} className="px-8 py-3 bg-white/5 border border-white/20 rounded hover:border-blue-400/50 text-white font-serif tracking-widest">缔结契约</button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // --- 简化版主逻辑，支持完整游戏流程 ---
+        const MahoyoApp = () => {
+            const [view, setView] = useState('landing');
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [isTyping, setIsTyping] = useState(false);
+            const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
+            const [showApiConfig, setShowApiConfig] = useState(false);
+            const [selectedCharDetail, setSelectedCharDetail] = useState(null);
+            const scrollRef = useRef(null);
+            const [isInitializing, setIsInitializing] = useState(false);
+
+            const [config, setConfig] = useState({
+                historyDepth: 10,
+                minWordCount: 50,
+                maxTokens: 4096,
+                customSystemPrompt: DEFAULT_SYSTEM_PROMPT
+            });
+            const [knowledgeBase, setKnowledgeBase] = useState([]);
+            const [dlcList, setDlcList] = useState([]);
+
+            // --- Load Knowledge Base ---
+            useEffect(() => {
+                const kb = localStorage.getItem('mahoyo_kb_v6');
+                if (kb) {
+                    const k = JSON.parse(kb);
+                    setKnowledgeBase(k.knowledgeBase || []);
+                    setDlcList(k.dlcList || []);
+                }
+            }, []);
+
+            useEffect(() => localStorage.setItem('mahoyo_kb_v6', JSON.stringify({ knowledgeBase, dlcList })), [knowledgeBase, dlcList]);
+
+            // --- Actions ---
+            const handleImportDLC = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const json = JSON.parse(evt.target.result);
+                        if(json.name && json.entries) {
+                            setDlcList(p => [...p, { name: json.name, description: json.description }]);
+                            setKnowledgeBase(p => [...p, ...json.entries.map(x => ({ ...x, source: json.name, id: Date.now() + Math.random() }))]);
+                            alert("DLC 导入成功");
+                        }
+                    } catch(err) { alert("DLC 格式错误"); }
+                };
+                reader.readAsText(file);
+            };
+
+            const callAI = async (userText, isInit = false, initPromptOverride = null) => {
+                setIsTyping(true);
+                // 模拟 AI 响应 - 移除 API 调用
+                setTimeout(() => {
+                    const mockResponse = isInit 
+                        ? "欢迎来到久远寺洋馆。作为转学生的你，第一次踏入这座神秘的建筑，感受到了空气中弥漫的魔力气息...\n\n---STATE---\n" + JSON.stringify(gameState)
+                        : "你执行了行动：" + userText + "。故事继续发展...";
+                    
+                    const [textPart, jsonPart] = mockResponse.split('---STATE---');
+                    setMessages(p => [...p, { id: Date.now().toString(), sender: 'ai', text: textPart.trim() }]);
+                    
+                    if (jsonPart) {
+                        try {
+                            const newState = JSON.parse(jsonPart.replace(/```json/g, '').replace(/```/g, '').trim());
+                            setGameState(p => ({ ...newState, basic: { ...p.basic, ...newState.basic } }));
+                        } catch (e) { console.warn("State update failed", e); }
+                    }
+                    
+                    setIsTyping(false);
+                    setIsInitializing(false);
+                }, 2000);
+            };
+
+            const handleInitGame = () => {
+                const prompt = `
+                    作为DM，根据玩家档案评定初始能力。
+                    档案：${JSON.stringify(gameState.basic)} 技能：${gameState.magic.join(',')}
+                    请输出：
+                    1. 开场剧情（玩家进入洋馆）。
+                    2. JSON更新：评定六维(E-EX)，给予3个初始物品，设定青子和有珠的初始【intro】和【impression】。
+                    格式：
+                    {开场剧情}
+                    ---STATE---
+                    {完整gameState JSON}
+                `;
+                setIsInitializing(true);
+                callAI(null, true, prompt);
+                setView('chat');
+            };
+
+            const handleSend = () => {
+                if(!input.trim()) return;
+                setMessages(p => [...p, { id: Date.now().toString(), sender: 'user', text: input }]);
+                setInput('');
+                callAI(input);
+            };
+
+            useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isTyping]);
+
+            return (
+                <div className="relative w-full h-screen">
+                    <StarField />
+                    <DlcModal 
+                        show={showApiConfig} 
+                        onClose={() => setShowApiConfig(false)}
+                        onImportDLC={handleImportDLC} dlcList={dlcList}
+                    />
+                    {selectedCharDetail && <CharacterDetailModal char={selectedCharDetail} onClose={() => setSelectedCharDetail(null)} />}
+
+                    <div className="relative z-10 w-full h-full flex items-center justify-center py-4 px-4">
+                        {view === 'landing' && (
+                            <div className="text-center animate-fade-in-up">
+                                <h1 className="text-6xl md:text-8xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-blue-100 to-slate-400 font-serif drop-shadow-lg font-cinzel">WITCH ON THE HOLY NIGHT</h1>
+                                <p className="text-xl text-blue-200/50 font-serif tracking-widest uppercase mb-12">Type-Moon AI RPG System</p>
+                                <div className="flex flex-col gap-4 w-full max-w-xs mx-auto">
+                                    <button onClick={() => { setGameState(INITIAL_GAME_STATE); setMessages([]); setView('creation'); }} className="px-12 py-4 border border-white/20 rounded-full text-white/80 hover:bg-white/5 hover:border-white/40 transition-all uppercase text-sm backdrop-blur-sm">开始新游戏</button>
+                                    <button onClick={() => setShowApiConfig(true)} className="px-12 py-4 border border-white/10 rounded-full text-white/50 hover:text-white hover:bg-white/5 transition-all uppercase text-sm backdrop-blur-sm">DLC 管理</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'creation' && <CharacterCreation gameState={gameState} setGameState={setGameState} onConfirm={handleInitGame} />}
+
+                        {view === 'chat' && (
+                            <div className="relative z-10 w-full h-full max-w-[1400px] mx-auto flex animate-fade-in bg-black/60 backdrop-blur-xl border border-white/5 shadow-2xl h-[90vh] rounded-xl overflow-hidden">
+                                <div className="hidden md:flex flex-col w-[320px] bg-black/40 border-r border-white/5 p-4 relative">
+                                    <div className="absolute inset-0 bg-gradient-to-b from-blue-900/5 to-transparent pointer-events-none"></div>
+                                    <Sidebar gameState={gameState} onCharClick={setSelectedCharDetail} />
+                                </div>
+                                <div className="flex-1 flex flex-col relative bg-gradient-to-br from-transparent to-[#050b14]/80">
+                                    <header className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/20 backdrop-blur-md">
+                                        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setView('landing')}>
+                                            <div className="p-2 rounded-full bg-white/5 border border-white/10 group-hover:bg-white/10 transition-all"><Moon className="w-5 h-5 text-blue-400" /></div>
+                                            <div>
+                                                <h2 className="text-lg font-serif text-white/90 tracking-widest">TRPG Mode</h2>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                                    <span className="text-[10px] text-white/40 uppercase tracking-wider">模拟模式</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => setShowApiConfig(true)} className="p-2 text-white/30 hover:text-blue-400 hover:bg-white/5 rounded-full transition-all"><Database className="w-5 h-5" /></button>
+                                    </header>
+                                    <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-white/10">
+                                        {messages.map((msg) => (
+                                            <div key={msg.id} className={`flex w-full ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
+                                                <div className={`flex max-w-[85%] gap-4 ${msg.sender === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                                                    {msg.sender !== 'system' && <div className={`flex-shrink-0 w-10 h-10 rounded-sm border border-white/10 flex items-center justify-center shadow-lg mt-1 ${msg.sender === 'ai' ? 'bg-gradient-to-br from-slate-800 to-black' : 'bg-slate-700'}`}>{msg.sender === 'ai' ? '📜' : '👤'}</div>}
+                                                    <div className="flex flex-col gap-1">
+                                                        {msg.sender !== 'system' && <span className={`text-[10px] text-white/30 uppercase tracking-widest ${msg.sender === 'user' ? 'text-right' : 'text-left'}`}>{msg.sender === 'ai' ? 'Storyteller' : 'Player'}</span>}
+                                                        <div className={`relative px-6 py-4 text-sm leading-relaxed shadow-lg backdrop-blur-sm ${msg.sender === 'ai' ? 'bg-slate-900/90 text-slate-200 border-l-2 border-blue-500/30' : msg.sender === 'system' ? 'bg-red-900/20 text-red-200 border border-red-500/20 text-center text-xs' : 'bg-white/10 text-white border-r-2 border-white/30'}`}>
+                                                            {msg.sender !== 'system' && <><span className={`absolute top-0 w-2 h-2 border-t border-white/20 ${msg.sender === 'ai' ? 'left-0 border-l' : 'right-0 border-r'}`}></span><span className={`absolute bottom-0 w-2 h-2 border-b border-white/20 ${msg.sender === 'ai' ? 'right-0 border-r' : 'left-0 border-l'}`}></span></>}
+                                                            {msg.sender === 'ai' && msg.id === messages[messages.length-1].id && !isTyping ? <Typewriter text={msg.text} /> : <span className="whitespace-pre-wrap">{msg.text}</span>}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {isTyping && <div className="flex gap-4 animate-pulse opacity-50"><div className="w-10 h-10 bg-slate-900 border border-white/10 rounded-sm flex items-center justify-center text-xs">📜</div><div className="px-4 py-2 bg-slate-900/50 border-l border-white/10 text-white/30 text-xs font-serif flex items-center gap-2"><Sparkles className="w-3 h-3 animate-spin" /> 正在编织命运...</div></div>}
+                                        {isInitializing && <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center backdrop-blur-sm"><div className="text-center"><div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p className="text-blue-300 font-serif tracking-widest animate-pulse">正在评定玩家素质与初始状态...</p></div></div>}
+                                        <div ref={scrollRef} />
+                                    </div>
+                                    <div className="p-6 bg-gradient-to-t from-black via-black/90 to-transparent">
+                                        <div className="relative group">
+                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg opacity-20 group-hover:opacity-60 transition duration-500 blur"></div>
+                                            <div className="relative flex items-center bg-black border border-white/10 rounded-lg p-1">
+                                                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="输入你的行动..." className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-white placeholder-white/20 font-serif" />
+                                                <button onClick={handleSend} disabled={!input.trim()} className="p-3 rounded-md transition-all text-blue-400 hover:bg-white/10 hover:shadow-[0_0_15px_rgba(59,130,246,0.5)]"><Send className="w-5 h-5" /></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<MahoyoApp />);
+    </script>
+</body>
+</html>
