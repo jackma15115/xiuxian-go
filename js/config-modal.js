@@ -1994,13 +1994,38 @@ async function fetchMobileModels() {
     const modelSelect = document.getElementById('mobileModelSelect');
     const saveBtn = document.getElementById('saveMobileConnectionBtn');
 
-    if (!endpoint || !key) {
-        alert('请填写API端点和密钥');
-        return;
+    const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+    if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain) && (!endpoint || !key)) {
+        statusIndicator.style.background = '#ffd93d';
+        statusIndicator.style.boxShadow = '0 0 8px #ffd93d';
+        try {
+            const res = await fetch('/api/models');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const models = data.models || [];
+            if (models.length > 0) {
+                modelSelect.innerHTML = '';
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    modelSelect.appendChild(option);
+                });
+                modelSelectGroup.style.display = 'block';
+                saveBtn.style.display = 'block';
+                statusIndicator.style.background = '#00b894';
+                statusIndicator.style.boxShadow = '0 0 8px #00b894';
+                return;
+            }
+        } catch (err) {
+            console.warn('从服务端获取手机模型列表失败:', err);
+        }
     }
 
-    statusIndicator.style.background = '#ffd93d';
-    statusIndicator.style.boxShadow = '0 0 8px #ffd93d';
+    if (!endpoint || !key) {
+        alert('请填写API端点和密钥（或使用服务端 .env 集中托管）');
+        return;
+    }
 
     try {
         let models = [];

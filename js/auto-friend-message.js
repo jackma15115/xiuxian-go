@@ -304,6 +304,11 @@ function getGameContext(depth) {
  * 调用手机API（用于自动消息）
  */
 async function callMobileAPIForAutoMessage(messages) {
+    const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+    if (sCfg && sCfg.serverMode) {
+        return await callMobileAPI(messages);
+    }
+
     const config = window.mobileApiConfig;
     
     if (!config || !config.key || !config.endpoint) {
