@@ -177,7 +177,12 @@ jobs:
           if gh release view "$TAG_NAME" > /dev/null 2>&1; then
             echo "Release $TAG_NAME exists. Updating release assets..."
             gh release upload "$TAG_NAME" release-assets/* --clobber
-            gh release edit "$TAG_NAME" --title "$TITLE" --generate-notes
+            if gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" -f tag_name="$TAG_NAME" --jq '.body' > release-notes.md 2>/dev/null && [ -s release-notes.md ]; then
+              gh release edit "$TAG_NAME" --title "$TITLE" --notes-file release-notes.md
+              rm -f release-notes.md
+            else
+              gh release edit "$TAG_NAME" --title "$TITLE"
+            fi
           else
             echo "Creating new release $TAG_NAME..."
             gh release create "$TAG_NAME" release-assets/* --title "$TITLE" --generate-notes $PRERELEASE_FLAG
