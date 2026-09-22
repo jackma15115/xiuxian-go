@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  xiuxian:
+    image: ghcr.io/jackma15115/xiuxian-go:latest
+    container_name: xiuxian-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - URL=https://api.openai.com/v1
+      - APIKEY=your_api_key_here
+      - MODEL=gpt-4o-mini
+      - API_TYPE=openai
+      # 可选：流式强制策略 (true/stream 强制流式, false/sync 强制非流式, 留空原生自适应)
+      # - FORCE_STREAM=true
+      # 可选：额外 API 配置 (未配置默认走主 API)
+      # - EXTRA_URL=
+      # - EXTRA_APIKEY=
+      # - EXTRA_MODEL=
+      # 可选：向量接口配置 (未配置默认走浏览器本地计算)
+      # - EMBEDDING_MODEL=text-embedding-3-small
+    # 若更偏好本地 .env 文件，可取消以下注释直接挂载:
+    # env_file:
+    #   - .env

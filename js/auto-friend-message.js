@@ -25,9 +25,10 @@ async function generateAutoFriendMessage(forceGenerate = false) {
         return;
     }
     
-    // 检查手机API是否配置
+    // 检查手机API是否配置（服务端模式自动代理并回退走主API）
+    const isServer = window.serverConfig && window.serverConfig.serverMode;
     const mobileApiConfig = window.mobileApiConfig || {};
-    if (!mobileApiConfig.enabled || !mobileApiConfig.key) {
+    if (!isServer && (!mobileApiConfig.enabled || !mobileApiConfig.key)) {
         console.warn('[📨好友自动消息] 手机API未配置，跳过');
         return;
     }

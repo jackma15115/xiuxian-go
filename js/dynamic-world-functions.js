@@ -131,17 +131,14 @@ function displayDynamicWorldHistory() {
         return;
     }
 
-    // 检查额外API配置
-    if (!extraApiConfig.enabled || !extraApiConfig.key) {
+    // 检查额外API配置（纯前端模式需要手动检查，Go服务端模式下已自动代理并回退走主API）
+    const isServer = window.serverConfig && window.serverConfig.serverMode;
+    if (!isServer && (!extraApiConfig.enabled || !extraApiConfig.key)) {
         container.innerHTML = `
             <div style="text-align: center; padding: 40px; color: #999;">
                 <div style="font-size: 48px; margin-bottom: 15px;">⚠️</div>
                 <div style="font-size: 16px; margin-bottom: 10px; color: #e67e22;">额外API未配置</div>
-                <div style="font-size: 12px; margin-bottom: 15px;">动态世界需要使用第二API<br>请先配置并保存额外API</div>
-                <button onclick="openConfigModal(); setTimeout(() => { toggleSection('extraApiSection'); document.getElementById('extraApiSection').scrollIntoView(); }, 100);" 
-                    style="padding: 10px 20px; background: #e67e22; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px;">
-                    配置额外API
-                </button>
+                <div style="font-size: 12px; margin-bottom: 15px;">动态世界需要使用第二API<br>请在服务端的 .env 中配置 EXTRA_URL 或直接使用主模型</div>
             </div>
         `;
         return;
@@ -280,10 +277,10 @@ async function generateDynamicWorld() {
     console.log('[动态世界] 达到生成间隔，重置计数器并开始生成');
     gameState.dynamicWorld.messageCounter = 0;
 
-    // 检查额外API是否配置
-    if (!extraApiConfig.enabled || !extraApiConfig.key) {
+    // 检查额外API是否配置（服务端模式自动代理并回退走主API）
+    const isServerExtra = window.serverConfig && window.serverConfig.serverMode;
+    if (!isServerExtra && (!extraApiConfig.enabled || !extraApiConfig.key)) {
         console.warn('[动态世界] 额外API未配置！');
-        console.warn('[动态世界] 请在【设置 → 额外API设置】中配置并保存第二API');
         return;
     }
 

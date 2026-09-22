@@ -1,0 +1,58 @@
+# ==========================================
+# Git Ignore Configuration for xiuxian-go
+# ==========================================
+
+# Go compilation and binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+xiuxian
+xiuxian.exe
+
+# Webpack build artifacts (keep directory via .gitkeep for Go embed)
+dist/*
+!dist/.gitkeep
+
+# Node.js dependencies and logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment secrets and local configurations
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# IDEs and Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.log

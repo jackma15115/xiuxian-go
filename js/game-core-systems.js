@@ -966,7 +966,16 @@ async function changeVectorMethod() {
     if (window.contextVectorManager) {
         window.contextVectorManager.setEmbeddingMethod(method);
         if (method === 'api') {
-            alert('💡 提示：API向量化需要配置额外API\n\n在"额外API设置"中启用并配置一个支持embeddings的API（如OpenAI）\n\n将自动调用 /embeddings 端点获取向量');
+            const sCfg = window.serverConfig;
+            if (sCfg && sCfg.serverMode && sCfg.hasEmbedding) {
+                alert(`💡 提示：已切换为通过 Go 服务端代理 API 计算向量（当前模型: ${sCfg.embeddingModel}）`);
+            } else {
+                alert('💡 提示：已选择 API 向量化。\n\n若服务端 .env 中配置了 EMBEDDING_MODEL 或 EMBEDDING_URL，将通过服务端代理；若未配置，将自动降级使用浏览器本地计算。');
+            }
+        } else if (method === 'transformers') {
+            console.log('[向量模式] 已切换为纯前端浏览器本地大模型 (Transformers.js)');
+        } else if (method === 'keyword') {
+            console.log('[向量模式] 已切换为纯前端本地关键词匹配 (快速模式)');
         }
     }
 }

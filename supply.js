@@ -193,6 +193,9 @@ class ContextVectorManager {
         // 页面刷新后自动预加载模型（如果之前使用的是浏览器模型）
         this.autoPreloadModelIfNeeded();
         
+        // 自动同步服务端配置并设置向量模式（支持ENV配置或默认浏览器本地）
+        this.initServerEmbeddingConfig();
+        
         // 🆕 定期清理控制台（防止日志过多导致卡顿）
         this.startConsoleCleaner();
     }
@@ -283,6 +286,37 @@ class ContextVectorManager {
             }
         } catch (error) {
             console.log('[自动预加载] 配置检查失败，跳过预加载');
+        }
+    }
+
+    async initServerEmbeddingConfig() {
+        try {
+            // 检查用户是否在游戏设置中显式指定了纯前端本地模式 (transformers 或 keyword)
+            const savedConfig = (typeof window !== 'undefined' && window.localStorage)
+                ? JSON.parse(window.localStorage.getItem('gameConfig') || '{}')
+                : {};
+            if (savedConfig.vectorMethod === 'transformers' || savedConfig.vectorMethod === 'keyword') {
+                this.embeddingMethod = savedConfig.vectorMethod;
+                console.log(`[向量模式] 用户已选定纯前端本地模式 (${this.embeddingMethod})，优先使用纯前端计算`);
+                return;
+            }
+
+            const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+            if (sCfg && sCfg.serverMode) {
+                if (sCfg.hasEmbedding) {
+                    this.embeddingMethod = 'api';
+                    console.log(`[向量模式] 服务端已配置Embedding API (${sCfg.embeddingModel})，已启用服务端API`);
+                } else {
+                    console.log('[向量模式] 服务端未配置Embedding，默认使用浏览器纯前端本地模式');
+                    if (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem('transformers_model_ready') === '1') {
+                        this.embeddingMethod = 'transformers';
+                    } else {
+                        this.embeddingMethod = 'keyword';
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[向量模式] 初始化同步服务端配置失败:', e);
         }
     }
     
@@ -1492,7 +1526,7 @@ class ContextVectorManager {
     }
 
     /**
-     * 【方案2】通过API获取embedding（需要配置额外API）
+     * 【方案2】通过API获取embedding（优先通过Go服务端API，未配置则降级为浏览器本地模型）
      */
     async getEmbeddingFromAPI(text) {
         // 🔧 修复：确保text是字符串类型
@@ -1510,41 +1544,65 @@ class ContextVectorManager {
             }
         }
 
-        // 检查是否启用了额外API
-        if (!window.extraApiConfig || !window.extraApiConfig.enabled) {
-            console.warn('[向量API] 额外API未启用，回退到关键词方法');
-            return this.createKeywordVector(text);
-        }
-        
-        try {
-            const endpoint = window.extraApiConfig.endpoint.trim().replace(/\/+$/, '');
-            const apiKey = window.extraApiConfig.key;
-            
-            // OpenAI embeddings API
-            const response = await fetch(`${endpoint}/embeddings`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    input: text.substring(0, 8000), // 限制长度
-                    model: 'text-embedding-ada-002' // 可配置
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`API错误: ${response.status}`);
+        // 1. 检查Go服务端是否配置了Embedding
+        const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+        if (sCfg && sCfg.serverMode) {
+            if (sCfg.hasEmbedding) {
+                try {
+                    const response = await fetch('/api/embeddings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            input: text.substring(0, 8000)
+                        })
+                    });
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.data && data.data[0] && data.data[0].embedding) {
+                            return data.data[0].embedding;
+                        }
+                    }
+                    console.warn('[向量API] 服务端Embedding返回非OK，降级到本地模型');
+                } catch (e) {
+                    console.warn('[向量API] 服务端Embedding调用出错:', e);
+                }
+            } else {
+                // 用户需求：embedded接口也支持配置，不配置默认走浏览器本地。
+                console.log('[向量API] 服务端未配置Embedding接口，自动降级为浏览器本地模型');
+                return await this.getEmbeddingFromTransformers(text);
             }
-            
-            const data = await response.json();
-            return data.data[0].embedding; // 返回向量数组
-            
-        } catch (error) {
-            console.error('[向量API] 调用失败:', error);
-            // 回退到关键词方法
-            return this.createKeywordVector(text);
         }
+
+        // 2. 检查客户端是否配置了额外API（纯前端回退）
+        if (window.extraApiConfig && window.extraApiConfig.enabled && window.extraApiConfig.endpoint) {
+            try {
+                const endpoint = window.extraApiConfig.endpoint.trim().replace(/\/+$/, '');
+                const apiKey = window.extraApiConfig.key;
+                
+                // OpenAI embeddings API
+                const response = await fetch(`${endpoint}/embeddings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        input: text.substring(0, 8000), // 限制长度
+                        model: 'text-embedding-ada-002' // 可配置
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.data[0].embedding; // 返回向量数组
+                }
+            } catch (error) {
+                console.error('[向量API] 客户端调用失败:', error);
+            }
+        }
+
+        // 3. 最终回退到浏览器本地模型
+        return await this.getEmbeddingFromTransformers(text);
     }
 
     /**

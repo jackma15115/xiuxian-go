@@ -1,0 +1,184 @@
+name: Release Go Binaries
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-frontend:
+    name: Build Frontend Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static assets
+        run: npm run build
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 1
+
+  build-binaries:
+    name: Build (${{ matrix.target }})
+    needs: build-frontend
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Linux
+          - goos: linux
+            goarch: amd64
+            target: linux-amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            target: linux-arm64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm
+            goarm: '7'
+            target: linux-armv7
+            archive: tar.gz
+          # Windows
+          - goos: windows
+            goarch: amd64
+            target: windows-amd64
+            archive: zip
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            target: windows-arm64
+            archive: zip
+            ext: .exe
+          # macOS (Darwin)
+          - goos: darwin
+            goarch: amd64
+            target: darwin-amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            target: darwin-arm64
+            archive: tar.gz
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          check-latest: false
+
+      - name: Download frontend dist
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: Compile Go Binary
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: |
+          BINARY_NAME="xiuxian${{ matrix.ext }}"
+          mkdir -p build-output
+          go build -ldflags="-s -w" -o "build-output/${BINARY_NAME}" .
+
+      - name: Package Release Archive
+        run: |
+          TARGET_NAME="xiuxian-${{ matrix.target }}"
+          mkdir -p "$TARGET_NAME"
+          cp "build-output/xiuxian${{ matrix.ext }}" "$TARGET_NAME/"
+          cp .env.example "$TARGET_NAME/"
+          cp README.md "$TARGET_NAME/"
+
+          mkdir -p release-archive
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd "$TARGET_NAME" && zip -r "../release-archive/${TARGET_NAME}.zip" .)
+          else
+            tar -czvf "release-archive/${TARGET_NAME}.tar.gz" -C "$TARGET_NAME" .
+          fi
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-${{ matrix.target }}
+          path: release-archive/*
+          retention-days: 1
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all archive artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: archive-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate Checksums
+        working-directory: release-assets
+        run: |
+          sha256sum * > checksums.txt
+          echo "Generated Checksums:"
+          cat checksums.txt
+
+      - name: Publish Release with GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ startsWith(github.ref, 'refs/tags/') }}" = "true" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+            TITLE="Release ${{ github.ref_name }}"
+            PRERELEASE_FLAG=""
+          else
+            TAG_NAME="latest"
+            TITLE="Continuous Release (latest)"
+            PRERELEASE_FLAG="--prerelease=false"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -f latest
+            git push -f origin latest || true
+          fi
+
+          if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+            echo "Release $TAG_NAME exists. Updating release assets..."
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+            gh release edit "$TAG_NAME" --title "$TITLE" --generate-notes
+          else
+            echo "Creating new release $TAG_NAME..."
+            gh release create "$TAG_NAME" release-assets/* --title "$TITLE" --generate-notes $PRERELEASE_FLAG
+          fi

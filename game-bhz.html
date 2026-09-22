@@ -1334,7 +1334,8 @@
         async function startGame() {
             if (gameState.isProcessing) return;
 
-            if (!apiConfig.endpoint || !apiConfig.key) {
+            const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+            if (!sCfg?.serverMode && (!apiConfig.endpoint || !apiConfig.key)) {
                 alert('请先配置API连接');
                 return;
             }

@@ -520,8 +520,34 @@ async function fetchModels() {
     const baseEndpoint = document.getElementById('apiEndpoint').value;
     const apiKey = document.getElementById('apiKey').value;
 
+    const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+    if (sCfg && sCfg.serverMode && sCfg.hasMain && (!baseEndpoint || !apiKey)) {
+        const btn = document.getElementById('fetchModelsBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        try {
+            const res = await fetch('/api/models');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const models = data.models || [];
+            if (models.length > 0) {
+                apiConfig.availableModels = models;
+                displayModels(models);
+                updateConnectionStatus(true);
+                document.getElementById('modelSelectGroup').style.display = 'flex';
+                document.getElementById('saveConnectionBtn').style.display = 'block';
+                btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
+                btn.disabled = false;
+                return;
+            }
+        } catch (err) {
+            console.warn('从服务端获取模型列表失败:', err);
+        }
+        btn.disabled = false;
+    }
+
     if (!baseEndpoint || !apiKey) {
-        alert('请先填写API端点和密钥');
+        alert('请先填写API端点和密钥（或在.env环境变量中配置URL与APIKEY）');
         return;
     }
 
@@ -668,8 +694,34 @@ async function fetchExtraModels() {
     const baseEndpoint = document.getElementById('extraApiEndpoint').value;
     const apiKey = document.getElementById('extraApiKey').value;
 
+    const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+    if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain) && (!baseEndpoint || !apiKey)) {
+        const btn = document.getElementById('fetchExtraModelsBtn');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        try {
+            const res = await fetch('/api/models?type=extra');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const models = data.models || [];
+            if (models.length > 0) {
+                extraApiConfig.availableModels = models;
+                displayExtraModels(models);
+                updateExtraConnectionStatus(true);
+                document.getElementById('extraModelSelectGroup').style.display = 'block';
+                document.getElementById('saveExtraConnectionBtn').style.display = 'block';
+                btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
+                btn.disabled = false;
+                return;
+            }
+        } catch (err) {
+            console.warn('从服务端获取额外模型列表失败:', err);
+        }
+        btn.disabled = false;
+    }
+
     if (!baseEndpoint || !apiKey) {
-        alert('请先填写额外API端点和密钥');
+        alert('请先填写额外API端点和密钥（或在.env中配置EXTRA_URL与EXTRA_APIKEY，未配置默认走主API）');
         return;
     }
 

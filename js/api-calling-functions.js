@@ -4,10 +4,151 @@
  * 从 game.html 中提取的API调用功能模块
  */
 
-// ==================== API调用函数 ====================
+// ==================== 服务端配置与代理状态 ====================
+window.serverConfig = window.serverConfig || null;
+
+async function checkServerConfig() {
+    if (window.serverConfig) return window.serverConfig;
+    try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+            window.serverConfig = await res.json();
+            console.log('[Server Config] Go服务端配置已加载:', window.serverConfig);
+            return window.serverConfig;
+        }
+    } catch (e) {
+        // 非Go服务端模式运行
+    }
+    window.serverConfig = { serverMode: false, hasMain: false, hasExtra: false, hasEmbedding: false };
+    return window.serverConfig;
+}
+
+// 自动预查服务端配置
+checkServerConfig();
+
+/**
+ * 通过 SSE (Server-Sent Events) 调用服务端 API
+ * 无论服务端配置是流式还是非流式，均统一通过 SSE 传输，并在等待上游响应时接收 keep-alive 保活心跳
+ * 彻底防止 Cloudflare 524 超时及中间网关超时问题
+ *
+ * @param {string} url - API 端点 (如 /api/chat, /api/extra, /api/mobile)
+ * @param {object} payload - 请求载荷 ({ messages, max_tokens, temperature })
+ * @returns {Promise<string>} - 组装后的完整回复
+ */
+async function callServerSSE(url, payload) {
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        let errDetail = '';
+        try {
+            const errJson = await response.json();
+            errDetail = errJson.error?.message || JSON.stringify(errJson);
+        } catch (_) {
+            errDetail = await response.text();
+        }
+        throw new Error(`请求服务端失败 (${response.status}): ${errDetail}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/event-stream')) {
+        const data = await response.json();
+        return data.content || data.choices?.[0]?.message?.content || '';
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let fullContent = '';
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // 未完成的行放回 buffer
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                // 忽略空行以及 SSE 注释行（如 : keep-alive 保活心跳）
+                if (!trimmed || trimmed.startsWith(':')) {
+                    continue;
+                }
+
+                if (trimmed.startsWith('data:')) {
+                    const dataStr = trimmed.slice(5).trim();
+                    if (dataStr === '[DONE]') {
+                        continue;
+                    }
+
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        if (parsed.error) {
+                            throw new Error(parsed.error.message || 'Stream error');
+                        }
+
+                        // 1. 标准流式 delta: choices[0].delta.content
+                        const delta = parsed.choices?.[0]?.delta?.content;
+                        if (delta) {
+                            fullContent += delta;
+                            continue;
+                        }
+
+                        // 2. 完整响应 message: choices[0].message.content
+                        const msgContent = parsed.choices?.[0]?.message?.content;
+                        if (msgContent) {
+                            fullContent = msgContent;
+                            continue;
+                        }
+
+                        // 3. 顶层 content
+                        if (parsed.content) {
+                            fullContent = parsed.content;
+                            continue;
+                        }
+
+                        // 4. OpenAI Responses API 兼容: output_text
+                        if (parsed.output_text) {
+                            fullContent = parsed.output_text;
+                            continue;
+                        }
+                    } catch (e) {
+                        if (e.message && e.message.includes('Stream error')) {
+                            throw e;
+                        }
+                    }
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    return fullContent;
+}
 
 // 调用额外API
 async function callExtraAPI(messages) {
+    const sCfg = await checkServerConfig();
+    // 优先使用服务端代理（若额外API未配置，服务端自动回退走主API）
+    if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain)) {
+        const savedConfig = localStorage.getItem('gameConfig');
+        const userMaxTokens = savedConfig ? (JSON.parse(savedConfig).maxTokens || 16384) : 16384;
+        return await callServerSSE('/api/extra', {
+            messages: messages,
+            max_tokens: userMaxTokens,
+            temperature: 0.9
+        });
+    }
+
     const endpoint = extraApiConfig.type === 'gemini' 
         ? `${extraApiConfig.endpoint}/models/${extraApiConfig.model}:generateContent?key=${extraApiConfig.key}`
         : `${extraApiConfig.endpoint}/chat/completions`;
@@ -74,13 +215,9 @@ async function callExtraAPI(messages) {
 
 // 调用AI
 async function callAI(userMessage, isTest = false, originalUserInput = null) {
-    // 确保配置已加载
-    if (!apiConfig.endpoint || !apiConfig.key || !apiConfig.model) {
-        throw new Error('请先配置并保存API连接');
-    }
+    const sCfg = await checkServerConfig();
 
     let messages = [];
-
     if (!isTest) {
         // 🔧 传入原始用户输入（用于向量检索）
         messages = await buildAIMessages(userMessage, originalUserInput);
@@ -88,6 +225,27 @@ async function callAI(userMessage, isTest = false, originalUserInput = null) {
         messages = [
             { role: 'user', content: '你好' }
         ];
+    }
+
+    // 优先通过Go服务端代理（无跨域，支持ENV主配置，统一走SSE与心跳）
+    if (sCfg && sCfg.serverMode && sCfg.hasMain) {
+        try {
+            const savedConfig = localStorage.getItem('gameConfig');
+            const userMaxTokens = savedConfig ? (JSON.parse(savedConfig).maxTokens || 16384) : 16384;
+            return await callServerSSE('/api/chat', {
+                messages: messages,
+                max_tokens: userMaxTokens,
+                temperature: 0.8
+            });
+        } catch (error) {
+            console.error('服务端AI调用错误:', error);
+            throw error;
+        }
+    }
+
+    // 确保配置已加载（纯前端回退）
+    if (!apiConfig.endpoint || !apiConfig.key || !apiConfig.model) {
+        throw new Error('请先配置并保存API连接');
     }
 
     try {
@@ -104,21 +262,27 @@ async function callAI(userMessage, isTest = false, originalUserInput = null) {
 
 // 调用额外API（供其他用途使用）
 async function callExtraAI(messages, systemPrompt = null) {
-    // 确保额外API已启用并配置
-    if (!extraApiConfig.enabled) {
-        throw new Error('额外API未启用');
-    }
-    
-    if (!extraApiConfig.endpoint || !extraApiConfig.key || !extraApiConfig.model) {
-        throw new Error('请先配置并保存额外API连接');
-    }
-
     // 如果提供了系统提示词，添加到消息开头
     if (systemPrompt) {
         messages = [
             { role: 'system', content: systemPrompt },
             ...messages
         ];
+    }
+
+    const sCfg = await checkServerConfig();
+    // 优先走服务端代理（如果未配置额外API，服务端默认回退走主API）
+    if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain)) {
+        return await callExtraAPI(messages);
+    }
+
+    // 确保额外API已启用并配置（前端直连回退）
+    if (!extraApiConfig.enabled) {
+        throw new Error('额外API未启用');
+    }
+    
+    if (!extraApiConfig.endpoint || !extraApiConfig.key || !extraApiConfig.model) {
+        throw new Error('请先配置并保存额外API连接');
     }
 
     try {
@@ -317,7 +481,19 @@ async function callGemini(messages) {
  * @returns {Promise<string>} - AI回复内容
  */
 async function callMobileAPI(messages) {
-    // 确保手机API已配置
+    const sCfg = await checkServerConfig();
+    // 优先走Go服务端代理（统一走SSE与心跳）
+    if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain)) {
+        const savedConfig = localStorage.getItem('gameConfig');
+        const userMaxTokens = savedConfig ? (JSON.parse(savedConfig).maxTokens || 16384) : 16384;
+        return await callServerSSE('/api/mobile', {
+            messages: messages,
+            max_tokens: userMaxTokens,
+            temperature: 0.8
+        });
+    }
+
+    // 确保手机API已配置（纯前端回退）
     if (!window.mobileApiConfig || !window.mobileApiConfig.enabled) {
         throw new Error('手机API未启用');
     }

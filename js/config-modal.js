@@ -12,105 +12,25 @@ function generateConfigModal() {
         </div>
         <div class="modal-body">
             <div class="config-panel">
-                <!-- API设置折叠区块 -->
+                <!-- 🖥️ 服务端 AI 服务状态（统一托管，无须前端 BYOK 输入密钥） -->
                 <div class="collapsible-section">
-                    <div class="collapsible-header collapsed" onclick="toggleSection('apiSection')">
-                        <span>🔌 API设置</span>
+                    <div class="collapsible-header" onclick="toggleSection('serverApiSection')">
+                        <span>🖥️ 服务端 AI 服务状态</span>
                         <span class="arrow">▼</span>
                     </div>
-                    <div class="collapsible-content" id="apiSection">
-                        <div class="config-group">
-                            <label>API类型</label>
-                            <select id="apiType">
-                                <option value="openai">OpenAI</option>
-                                <option value="gemini">Gemini直连</option>
-                                <option value="custom">第三方(/v1)</option>
-                            </select>
-                        </div>
-
-                        <div class="config-group">
-                            <label>API端点</label>
-                            <input type="text" id="apiEndpoint" placeholder="https://api.openai.com/v1">
-                        </div>
-
-                        <div class="config-group">
-                            <label>API密钥</label>
-                            <input type="password" id="apiKey" placeholder="输入API密钥">
-                        </div>
-
-                        <button class="btn btn-primary" onclick="fetchModels()" id="fetchModelsBtn">
-                            <span class="status-indicator" id="connectionStatus"></span>
-                            连接并获取模型
-                        </button>
-
-                        <div class="config-group" id="modelSelectGroup" style="display: none;">
-                            <label>选择模型（必选）</label>
-                            <select id="modelSelect" size="8" style="height: 200px;">
-                                <option value="">正在加载模型列表...</option>
-                            </select>
-                        </div>
-
-                        <button class="btn btn-primary" onclick="saveConnection()" id="saveConnectionBtn"
-                            style="display: none;">
-                            💾 保存API配置
-                        </button>
-                    </div>
-                </div>
-
-                <!-- 额外API设置折叠区块 -->
-                <div class="collapsible-section">
-                    <div class="collapsible-header collapsed" onclick="toggleSection('extraApiSection')">
-                        <span>🔗 额外API设置（可选）</span>
-                        <span class="arrow">▼</span>
-                    </div>
-                    <div class="collapsible-content" id="extraApiSection">
-                        <div class="config-group">
-                            <label style="display: flex; align-items: center; cursor: pointer;">
-                                <input type="checkbox" id="enableExtraApi" onchange="toggleExtraApiFields()"
-                                    style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                <span>✅ 启用额外API</span>
-                            </label>
-                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                                勾选后启用第二个API配置（可用于其他用途）
-                            </small>
-                        </div>
-
-                        <div id="extraApiFields" style="display: none;">
-                            <div class="config-group" style="margin-top: 15px;">
-                                <label>额外API类型</label>
-                                <select id="extraApiType">
-                                    <option value="openai">OpenAI</option>
-                                    <option value="gemini">Gemini直连</option>
-                                    <option value="custom">第三方(/v1)</option>
-                                </select>
+                    <div class="collapsible-content" id="serverApiSection">
+                        <div style="background: #f0f7ff; border: 1px solid #cce5ff; border-radius: 8px; padding: 14px; font-size: 13px; line-height: 1.8; color: #2c3e50;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #d0e4ff; padding-bottom: 6px;">
+                                <span style="font-weight: bold; color: #0056b3; font-size: 14px;">🚀 Go 后端代理服务</span>
+                                <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px;">已激活 (无跨域)</span>
                             </div>
-
-                            <div class="config-group">
-                                <label>额外API端点</label>
-                                <input type="text" id="extraApiEndpoint" placeholder="https://api.openai.com/v1">
+                            <div>• 主对话模型：<strong id="serverStatusMainModel" style="color: #0056b3;">正在检测...</strong></div>
+                            <div>• 额外辅助模型：<strong id="serverStatusExtraModel" style="color: #0056b3;">正在检测...</strong></div>
+                            <div>• 向量检索接口：<strong id="serverStatusEmbedding" style="color: #0056b3;">正在检测...</strong></div>
+                            <div>• 数据流与保活：<strong id="serverStatusStream" style="color: #28a745;">全链路 SSE + 25s 心跳保活</strong></div>
+                            <div style="margin-top: 10px; padding: 8px 12px; background: #ffffff; border-left: 3px solid #28a745; font-size: 12px; color: #555; border-radius: 4px;">
+                                💡 <strong>安全提示</strong>：本项目已改为 Go 后端独立运行。所有 API 密钥与接口均由服务端的 <code>.env</code> 或系统环境变量集中托管，<strong>已去除前端手动输入密钥 (BYOK) 机制</strong>，保障密钥安全与消除跨域限制。若需更换模型或服务商，请直接修改服务端的 <code>.env</code> 文件。
                             </div>
-
-                            <div class="config-group">
-                                <label>额外API密钥</label>
-                                <input type="password" id="extraApiKey" placeholder="输入API密钥">
-                            </div>
-
-                            <button class="btn btn-primary" onclick="fetchExtraModels()" id="fetchExtraModelsBtn">
-                                <span class="status-indicator" id="extraConnectionStatus"></span>
-                                连接并获取模型
-                            </button>
-
-                            <div class="config-group" id="extraModelSelectGroup" style="display: none;">
-                                <label>选择模型（必选）</label>
-                                <select id="extraModelSelect" size="8" style="height: 200px;">
-                                    <option value="">正在加载模型列表...</option>
-                                </select>
-                            </div>
-
-                            <button class="btn btn-primary" onclick="saveExtraConnection()" id="saveExtraConnectionBtn"
-                                style="display: none;">
-                                💾 保存额外API配置
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -127,7 +47,7 @@ function generateConfigModal() {
                                 <strong>📱 外置手机功能</strong>
                             </div>
                             <div style="font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.6;">
-                                启用后在游戏界面显示一个赛博风格手机，可通过手机与AI聊天。手机使用独立的第三API，支持完整的知识库、向量检索、人物图谱等功能。
+                                启用后在游戏界面显示一个赛博风格手机，可通过手机与AI聊天。手机消息直接由 Go 服务端托管代理，支持完整的知识库、向量检索、人物图谱等功能。
                             </div>
                         </div>
 
@@ -138,48 +58,11 @@ function generateConfigModal() {
                                 <span>✅ 启用外置手机</span>
                             </label>
                             <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                                勾选后在游戏界面右侧显示手机，需配置手机API
+                                勾选后在游戏界面右侧显示手机，消息自动由服务端代理
                             </small>
                         </div>
 
                         <div id="mobilePhoneFields" style="display: none;">
-                            <div class="config-group" style="margin-top: 15px;">
-                                <label>手机API类型</label>
-                                <select id="mobileApiType">
-                                    <option value="openai">OpenAI</option>
-                                    <option value="gemini">Gemini直连</option>
-                                    <option value="custom">第三方(/v1)</option>
-                                </select>
-                            </div>
-
-                            <div class="config-group">
-                                <label>手机API端点</label>
-                                <input type="text" id="mobileApiEndpoint" placeholder="https://api.openai.com/v1">
-                            </div>
-
-                            <div class="config-group">
-                                <label>手机API密钥</label>
-                                <input type="password" id="mobileApiKey" placeholder="输入API密钥">
-                            </div>
-
-                            <button class="btn btn-primary" onclick="fetchMobileModels()" id="fetchMobileModelsBtn">
-                                <span class="status-indicator" id="mobileConnectionStatus"></span>
-                                连接并获取模型
-                            </button>
-
-                            <div class="config-group" id="mobileModelSelectGroup" style="display: none;">
-                                <label>选择模型（必选）</label>
-                                <select id="mobileModelSelect" size="8" style="height: 200px;">
-                                    <option value="">正在加载模型列表...</option>
-                                </select>
-                            </div>
-
-                            <button class="btn btn-primary" onclick="saveMobileConnection()" id="saveMobileConnectionBtn"
-                                style="display: none;">
-                                💾 保存手机API配置
-                            </button>
-
-                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
 
                             <div class="config-group">
                                 <label style="display: flex; align-items: center; cursor: pointer;">
@@ -1234,13 +1117,15 @@ function loadConfigModal() {
         // 直接生成配置弹窗，避免CORS问题
         generateConfigModal();
         
-        // 配置弹窗生成完成后，执行loadConfig
+        // 配置弹窗生成完成后，执行loadConfig与服务端状态渲染
         setTimeout(() => {
             if (typeof loadConfig === 'function') {
                 loadConfig();
             }
             // 加载人物图谱配置
             loadCharacterGraphConfig();
+            // 渲染Go服务端配置状态展示
+            updateServerStatusUI();
         }, 100);
     } catch (error) {
         console.error('生成配置弹窗失败:', error);
@@ -1250,6 +1135,35 @@ function loadConfigModal() {
                 loadConfig();
             }
         }, 100);
+    }
+}
+
+async function updateServerStatusUI() {
+    try {
+        const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
+        if (!sCfg || !sCfg.serverMode) return;
+
+        const mainElem = document.getElementById('serverStatusMainModel');
+        const extraElem = document.getElementById('serverStatusExtraModel');
+        const embElem = document.getElementById('serverStatusEmbedding');
+        const streamElem = document.getElementById('serverStatusStream');
+
+        const embText = sCfg.hasEmbedding 
+            ? `服务端代理 (${sCfg.embeddingModel})` 
+            : `浏览器本地运行 (Transformers.js / 关键词)`;
+        const extraText = sCfg.hasExtra 
+            ? `${sCfg.extraModel} (${sCfg.extraType})` 
+            : `${sCfg.mainModel || '默认走主API'}`;
+        let streamDesc = '原生规则 (自适应)';
+        if (sCfg.mainStreamMode === 'stream') streamDesc = '强制流式 (FORCE_STREAM=true)';
+        else if (sCfg.mainStreamMode === 'sync') streamDesc = '强制非流式 (FORCE_STREAM=false)';
+
+        if (mainElem) mainElem.textContent = sCfg.mainModel ? `${sCfg.mainModel} (${sCfg.mainType})` : '未设置 (请在.env中配置)';
+        if (extraElem) extraElem.textContent = extraText;
+        if (embElem) embElem.textContent = embText;
+        if (streamElem) streamElem.textContent = `${streamDesc} [全链路 SSE + 25s 心跳保活]`;
+    } catch (e) {
+        console.warn('更新服务端状态面板失败:', e);
     }
 }
 

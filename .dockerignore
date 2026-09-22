@@ -1,0 +1,12 @@
+.git
+.github
+node_modules
+*.exe
+*.log
+.env
+.env.local
+dist
+tmp
+temp
+build.bat
+build.sh
