@@ -11,11 +11,22 @@ function generateConfigModal() {
             <button class="modal-close" onclick="closeConfigModal()">×</button>
         </div>
         <div class="modal-body">
+            <!-- Tab 导航栏 -->
+            <div class="config-tabs">
+                <button class="config-tab active" onclick="switchConfigTab('api')" data-tab="api">API</button>
+                <button class="config-tab" onclick="switchConfigTab('game')" data-tab="game">游戏</button>
+                <button class="config-tab" onclick="switchConfigTab('extend')" data-tab="extend">扩展</button>
+                <button class="config-tab" onclick="switchConfigTab('knowledge')" data-tab="knowledge">知识库</button>
+                <button class="config-tab" onclick="switchConfigTab('tools')" data-tab="tools">工具</button>
+                <button class="config-tab" onclick="switchConfigTab('save')" data-tab="save">存档</button>
+            </div>
             <div class="config-panel">
-                <!-- 🖥️ 服务端 AI 服务状态（统一托管，无须前端 BYOK 输入密钥） -->
-                <div class="collapsible-section">
+                <!-- ==================== API Tab ==================== -->
+                <div class="config-tab-content active" id="tab-api">
+                <!-- Go 服务端运行状态折叠区块 (替代前端手动配置Key) -->
+                <div class="collapsible-section" id="serverApiSectionWrapper">
                     <div class="collapsible-header" onclick="toggleSection('serverApiSection')">
-                        <span>🖥️ 服务端 AI 服务状态</span>
+                        <span>🔌 API 运行状态 (Go 服务端托管)</span>
                         <span class="arrow">▼</span>
                     </div>
                     <div class="collapsible-content" id="serverApiSection">
@@ -35,19 +46,122 @@ function generateConfigModal() {
                     </div>
                 </div>
 
+                <!-- API设置折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header collapsed" onclick="toggleSection('apiSection')">
+                        <span>API设置</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="apiSection">
+                        <div class="config-group">
+                            <label>API类型</label>
+                            <select id="apiType">
+                                <option value="openai">OpenAI</option>
+                                <option value="gemini">Gemini直连</option>
+                                <option value="custom">第三方(/v1)</option>
+                            </select>
+                        </div>
+
+                        <div class="config-group">
+                            <label>API端点</label>
+                            <input type="text" id="apiEndpoint" placeholder="https://api.openai.com/v1">
+                        </div>
+
+                        <div class="config-group">
+                            <label>API密钥</label>
+                            <input type="password" id="apiKey" placeholder="输入API密钥">
+                        </div>
+
+                        <button class="btn btn-primary" onclick="fetchModels()" id="fetchModelsBtn">
+                            <span class="status-indicator" id="connectionStatus"></span>
+                            连接并获取模型
+                        </button>
+
+                        <div class="config-group" id="modelSelectGroup" style="display: none;">
+                            <label>选择模型（必选）</label>
+                            <select id="modelSelect" size="8" style="height: 200px;">
+                                <option value="">正在加载模型列表...</option>
+                            </select>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveConnection()" id="saveConnectionBtn"
+                            style="display: none;">
+                            保存API配置
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 额外API设置折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('extraApiSection')">
+                        <span>额外API设置（可选）</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="extraApiSection">
+                        <div class="config-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="enableExtraApi" onchange="toggleExtraApiFields()"
+                                    style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                                <span>启用额外API</span>
+                            </label>
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                勾选后启用第二个API配置（可用于其他用途）
+                            </small>
+                        </div>
+
+                        <div id="extraApiFields" style="display: none;">
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>额外API类型</label>
+                                <select id="extraApiType">
+                                    <option value="openai">OpenAI</option>
+                                    <option value="gemini">Gemini直连</option>
+                                    <option value="custom">第三方(/v1)</option>
+                                </select>
+                            </div>
+
+                            <div class="config-group">
+                                <label>额外API端点</label>
+                                <input type="text" id="extraApiEndpoint" placeholder="https://api.openai.com/v1">
+                            </div>
+
+                            <div class="config-group">
+                                <label>额外API密钥</label>
+                                <input type="password" id="extraApiKey" placeholder="输入API密钥">
+                            </div>
+
+                            <button class="btn btn-primary" onclick="fetchExtraModels()" id="fetchExtraModelsBtn">
+                                <span class="status-indicator" id="extraConnectionStatus"></span>
+                                连接并获取模型
+                            </button>
+
+                            <div class="config-group" id="extraModelSelectGroup" style="display: none;">
+                                <label>选择模型（必选）</label>
+                                <select id="extraModelSelect" size="8" style="height: 200px;">
+                                    <option value="">正在加载模型列表...</option>
+                                </select>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="saveExtraConnection()" id="saveExtraConnectionBtn"
+                                style="display: none;">
+                                保存额外API配置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 📱 外置手机设置折叠区块 -->
                 <div class="collapsible-section">
-                    <div class="collapsible-header collapsed" onclick="toggleSection('mobilePhoneSection')">
-                        <span>📱 外置手机设置</span>
+                    <div class="collapsible-header" onclick="toggleSection('mobilePhoneSection')">
+                        <span>外置手机设置</span>
                         <span class="arrow">▼</span>
                     </div>
                     <div class="collapsible-content" id="mobilePhoneSection">
                         <div style="background: linear-gradient(135deg, #00f3ff 0%, #bf00ff 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
                             <div style="font-size: 14px; color: white; margin-bottom: 8px;">
-                                <strong>📱 外置手机功能</strong>
+                                <strong>外置手机功能</strong>
                             </div>
                             <div style="font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.6;">
-                                启用后在游戏界面显示一个赛博风格手机，可通过手机与AI聊天。手机消息直接由 Go 服务端托管代理，支持完整的知识库、向量检索、人物图谱等功能。
+                                启用后在游戏界面显示一个赛博风格手机，可通过手机与AI聊天。手机使用独立的第三API，支持完整的知识库、向量检索、人物图谱等功能。
                             </div>
                         </div>
 
@@ -55,20 +169,69 @@ function generateConfigModal() {
                             <label style="display: flex; align-items: center; cursor: pointer;">
                                 <input type="checkbox" id="enableMobilePhone" onchange="toggleMobilePhoneFields()"
                                     style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                <span>✅ 启用外置手机</span>
+                                <span>启用外置手机</span>
                             </label>
                             <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
-                                勾选后在游戏界面右侧显示手机，消息自动由服务端代理
+                                勾选后在游戏界面右侧显示手机，需配置手机API
                             </small>
                         </div>
 
                         <div id="mobilePhoneFields" style="display: none;">
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>手机API类型</label>
+                                <select id="mobileApiType">
+                                    <option value="openai">OpenAI</option>
+                                    <option value="gemini">Gemini直连</option>
+                                    <option value="custom">第三方(/v1)</option>
+                                </select>
+                            </div>
+
+                            <div class="config-group">
+                                <label>手机API端点</label>
+                                <input type="text" id="mobileApiEndpoint" placeholder="https://api.openai.com/v1">
+                            </div>
+
+                            <div class="config-group">
+                                <label>手机API密钥</label>
+                                <input type="password" id="mobileApiKey" placeholder="输入API密钥">
+                            </div>
+
+                            <button class="btn btn-primary" onclick="fetchMobileModels()" id="fetchMobileModelsBtn">
+                                <span class="status-indicator" id="mobileConnectionStatus"></span>
+                                连接并获取模型
+                            </button>
+
+                            <div class="config-group" id="mobileModelSelectGroup" style="display: none;">
+                                <label>选择模型（必选）</label>
+                                <select id="mobileModelSelect" size="8" style="height: 200px;">
+                                    <option value="">正在加载模型列表...</option>
+                                </select>
+                            </div>
+
+                            <button class="btn btn-primary" onclick="saveMobileConnection()" id="saveMobileConnectionBtn"
+                                style="display: none;">
+                                保存手机API配置
+                            </button>
+
+                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+                            <!-- 🆕 酒馆预设模式开关（默认开启） -->
+                            <div class="config-group" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; color: white;">
+                                    <input type="checkbox" id="mobileUseTavernPresetMode" checked
+                                        style="margin-right: 8px; width: 20px; height: 20px; cursor: pointer;">
+                                    <span style="font-weight: bold;">酒馆预设模式</span>
+                                </label>
+                                <small style="color: #fff !important; font-size: 12px; display: block; margin-top: 5px;">
+                                    使用与主游戏相同的14层酒馆预设结构构建手机/论坛上下文（推荐开启）
+                                </small>
+                            </div>
 
                             <div class="config-group">
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseKnowledgeBase" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>📚 启用知识库检索</span>
+                                    <span>启用知识库检索</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     手机发消息时检索知识库内容
@@ -79,7 +242,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseVectorRetrieval" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>🧬 启用向量检索</span>
+                                    <span>启用向量检索</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     手机发消息时使用向量检索相关历史
@@ -90,7 +253,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseWebSearch"
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>🌐 启用联网搜索</span>
+                                    <span>启用联网搜索</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     手机发消息时允许使用搜索引擎（需模型支持）
@@ -101,7 +264,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseCharacterGraph" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>👥 启用人物图谱</span>
+                                    <span>启用人物图谱</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     手机发消息时检索相关人物信息
@@ -112,7 +275,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseHistoryMatrix" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>📊 启用History矩阵</span>
+                                    <span>启用History矩阵</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     手机发消息时检索History矩阵
@@ -123,7 +286,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileShowBuildDetails" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>🔍 控制台显示构建详情</span>
+                                    <span>控制台显示构建详情</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     在控制台输出上下文构建过程
@@ -137,7 +300,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileIntegrateToMain" 
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>🔗 私聊记录关联人物图谱</span>
+                                    <span>私聊记录关联人物图谱</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     主API匹配人物时，同时发送该人物的私聊记录
@@ -169,7 +332,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="mobileUseMainVectorSearch" checked
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>🔍 匹配远处正文（向量检索）</span>
+                                    <span>匹配远处正文（向量检索）</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     像主API一样从向量库匹配相关的远处正文
@@ -188,7 +351,7 @@ function generateConfigModal() {
                             <div style="font-weight: bold; color: #bf00ff; margin-bottom: 10px;">📨 好友自动消息（被动触发）</div>
                             <div style="background: linear-gradient(135deg, #bf00ff 0%, #00f3ff 100%); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
                                 <div style="font-size: 12px; color: rgba(255,255,255,0.95); line-height: 1.6;">
-                                    📱 模拟好友主动发来消息！每隔N层楼自动触发：随机选择一位好友，AI根据上下文生成3-5条消息发送给你。
+                                    模拟好友主动发来消息！每隔N层楼自动触发：随机选择一位好友，AI根据上下文生成3-5条消息发送给你。
                                 </div>
                             </div>
 
@@ -196,7 +359,7 @@ function generateConfigModal() {
                                 <label style="display: flex; align-items: center; cursor: pointer;">
                                     <input type="checkbox" id="enableAutoFriendMessage" onchange="toggleAutoFriendMessageFields()"
                                         style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
-                                    <span>✅ 启用好友自动消息</span>
+                                    <span>启用好友自动消息</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     勾选后，好友会在游戏过程中主动给你发消息
@@ -290,30 +453,34 @@ function generateConfigModal() {
                                     </small>
                                 </div>
 
-                                <button class="btn btn-warning" onclick="testAutoFriendMessage()" 
+                                
+
+                            
+                            </div>
+                            <button class="btn btn-warning" onclick="testAutoFriendMessage()" 
                                     style="width: 100%; margin-top: 15px;">🧪 测试触发一次</button>
                             <button class="btn btn-info" onclick="viewMobileContext()" 
                                 style="width: 100%; margin-top: 15px;">👁️ 查看手机上下文</button>
 
                             <button class="btn btn-success" onclick="saveMobilePhoneSettings()"
                                 style="width: 100%; margin-top: 10px;">💾 保存手机设置</button>
-
-                            
-                            </div>
                         </div>
                     </div>
                 </div>
+                </div><!-- End of API Tab -->
 
+                <!-- ==================== 游戏 Tab ==================== -->
+                <div class="config-tab-content" id="tab-game">
                 <!-- 游戏设置折叠区块 -->
                 <div class="collapsible-section">
                     <div class="collapsible-header" onclick="toggleSection('gameSettings')">
-                        <span>⚙️ 游戏设置</span>
+                        <span>游戏设置（请启用向量检索浏览器模型）</span>
                         <span class="arrow">▼</span>
                     </div>
                     <div class="collapsible-content collapsed" id="gameSettings">
                         <div class="config-group">
                             <label>历史层数控制</label>
-                            <input type="number" id="historyDepth" min="0" max="50" value="10"
+                            <input type="number" id="historyDepth" min="0" max="50" value="5"
                                 style="padding: 8px; border: 2px solid #ddd; border-radius: 8px; width: 100%;">
                             <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                 0 = 只发送系统提示词+变量<br>
@@ -627,7 +794,7 @@ rule:
                             <label style="font-size: 13px; color: #666; margin-bottom: 8px; display: block;">向量化方法</label>
                             <select id="vectorMethod" onchange="changeVectorMethod()" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px;">
                                 <option value="keyword">关键词匹配（本地，快速）</option>
-                                <option value="api">API向量化（需额外API，精确）</option>
+                                
                                 <option value="transformers">浏览器模型（离线，首次13MB）</option>
                             </select>
                             
@@ -895,9 +1062,272 @@ rule:
 【叙事风格】：客观、简洁、留白、远观</textarea>
                             </div>
 
-                            <button class="btn btn-success" onclick="saveDynamicWorldSettings()"
-                                style="width: 100%; margin-top: 15px;">💾 保存动态世界设置</button>
+                            
                         </div>
+                        <button class="btn btn-success" onclick="saveDynamicWorldSettings()"
+                                style="width: 100%; margin-top: 15px;">💾 保存动态世界设置</button>
+                    </div>
+                </div>
+
+                <!-- 用户输入分析及用户画像折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header collapsed" onclick="toggleSection('userProfileSection')">
+                        <span>🎭 用户输入分析及用户画像</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="userProfileSection">
+                        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 14px; color: white; margin-bottom: 8px;">
+                                <strong>🎭 智能输入分析系统</strong>
+                            </div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.6;">
+                                启用后，用户的每次输入会先发送给额外API进行分析，提取用户意图、扩展内容、规划剧情走向，并持续构建用户画像。分析结果会附加到主API请求中，使剧情更贴合用户偏好。
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="enableUserProfileAnalysis" onchange="toggleUserProfileFields()"
+                                    style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                                <span>✅ 启用用户输入分析</span>
+                            </label>
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                勾选后，使用额外API分析用户输入，需要先配置额外API
+                            </small>
+                        </div>
+
+                        <div id="userProfileFields" style="display: none;">
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>分析提示词</label>
+                                <textarea id="userProfileAnalysisPrompt" placeholder="设置分析用户输入的规则..." 
+                                    style="min-height: 300px; resize: vertical; padding: 10px; border: 2px solid #ddd; border-radius: 8px; width: 100%; font-size: 13px;">你是一个专业的用户输入分析师，负责分析用户在文字冒险游戏中的输入。
+
+【你的任务】
+1. 分析用户输入的真实意图和期望
+2. 扩展用户输入的内容，补充可能省略的细节
+3. 规划本次剧情的发展方向（分三步）
+4. 分析并更新用户画像
+
+【输出格式（JSON）】
+{
+  "analysis": {
+    "originalInput": "用户原始输入",
+    "intent": "用户真实意图分析",
+    "emotionalTone": "情感基调（如：冒险、浪漫、暴力、温情等）",
+    "expandedContent": "扩展后的输入内容（补充细节，保持用户原意）"
+  },
+  "plotPlanning": {
+    "step1": "本次剧情第一步走向",
+    "step2": "本次剧情第二步走向",
+    "step3": "本次剧情第三步走向/高潮或转折"
+  },
+  "userProfile": {
+    "preferences": ["用户偏好1", "用户偏好2"],
+    "dislikes": ["用户不喜欢的内容"],
+    "writingStyle": "用户偏好的文风（如：细腻/简洁/华丽）",
+    "contentPreference": "内容偏好（如：剧情向/战斗向/社交向/R18向）",
+    "literacyLevel": "用户文学素养评估（如：高/中/低）",
+    "interactionPattern": "交互模式（如：主导型/探索型/被动型）",
+    "notes": "其他观察到的特征"
+  },
+  "enhancedPrompt": "整合后发送给主API的增强提示词"
+}
+
+【分析原则】
+1. 保持用户原意，不要过度解读
+2. 扩展内容要自然，不要添加用户明显不想要的元素
+3. 剧情规划要合理，符合当前游戏上下文
+4. 用户画像要客观，基于实际输入行为分析
+5. 增强提示词要包含分析结果的精华，帮助主API生成更好的内容</textarea>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>分析时读取正文层数</label>
+                                <input type="number" id="userProfileHistoryDepth" min="1" max="10" value="3"
+                                    style="width: 80px; text-align: center; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    发送最近几层AI正文作为剧情上下文（默认3层）
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>分析时读取历史矩阵层数</label>
+                                <input type="number" id="userProfileMatrixDepth" min="0" max="20" value="5"
+                                    style="width: 80px; text-align: center; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    从历史矩阵中读取几个话题层的摘要（默认5层，0=关闭）<br>
+                                    💡 帮助额外API看到更早的剧情线索，提取关键词和伏笔给主API
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label style="display: flex; align-items: center; cursor: pointer;">
+                                    <input type="checkbox" id="userProfileShowAnalysis" checked
+                                        style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                                    <span>🎭 显示用户分析思维链</span>
+                                </label>
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    每次发送后在游戏界面显示分析结果（意图分析、剧情规划等），<b>不保存到存档</b>
+                                </small>
+                            </div>
+
+                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+                            <div style="font-weight: bold; color: #764ba2; margin-bottom: 10px;">📋 用户画像管理</div>
+                            
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                                <div style="font-size: 14px; color: white; margin-bottom: 8px;">
+                                    <strong>📝 用户偏好问卷</strong>
+                                </div>
+                                <div style="font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.6; margin-bottom: 10px;">
+                                    通过问卷了解你的偏好，AI会根据你的画像定制剧情走向。<br>
+                                    问卷结果将发送给额外API进行分析，生成专属用户画像。
+                                </div>
+                                <button class="btn" onclick="openUserProfileQuestionnaire()" 
+                                    style="width: 100%; background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.5); padding: 12px;">
+                                    📋 开始用户分析问卷调查（调用API）
+                                </button>
+                            </div>
+
+                            <div class="config-group">
+                                <label>当前用户画像</label>
+                                <textarea id="currentUserProfile" readonly 
+                                    style="min-height: 150px; resize: vertical; padding: 10px; border: 2px solid #ddd; border-radius: 8px; width: 100%; font-size: 12px; background: #f8f9fa;color:#333">尚未生成用户画像，开始游戏并启用此功能后会自动积累。</textarea>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <button class="btn btn-info" onclick="viewUserProfile()" style="flex: 1;">
+                                    👁️ 查看完整画像
+                                </button>
+                                <button class="btn btn-warning" onclick="clearUserProfile()" style="flex: 1;">
+                                    🗑️ 清空画像
+                                </button>
+                            </div>
+
+                            <button class="btn btn-success" onclick="saveUserProfileSettings()"
+                                style="width: 100%; margin-top: 15px;">💾 保存用户画像设置</button>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- End of 游戏 Tab -->
+
+                <!-- ==================== 扩展 Tab ==================== -->
+                <div class="config-tab-content" id="tab-extend">
+                <!-- 🎨 NovelAI 文生图设置折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header collapsed" onclick="toggleSection('novelaiSection')">
+                        <span>🎨 NovelAI 文生图</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="novelaiSection">
+                        <div style="background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <div style="font-size: 14px; color: white; margin-bottom: 8px;">
+                                <strong>🎨 AI 插图生成</strong>
+                            </div>
+                            <div style="font-size: 12px; color: rgba(255,255,255,0.9); line-height: 1.6;">
+                                启用后，AI 可以在剧情中使用 <code style="background: rgba(0,0,0,0.2); padding: 2px 5px; border-radius: 3px;">img:提示词</code> 格式生成插图。需要 NovelAI 订阅。
+                            </div>
+                        </div>
+
+                        <div class="config-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="enableNovelAI" onchange="toggleNovelAIFields()"
+                                    style="margin-right: 8px; width: 18px; height: 18px; cursor: pointer;">
+                                <span>✅ 启用 NovelAI 文生图</span>
+                            </label>
+                            <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                勾选后，将插图生成提示词注入上下文，AI 可以生成 img:xxx 格式的插图指令
+                            </small>
+                        </div>
+
+                        <div id="novelaiFields" style="display: none;">
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>NovelAI API Key</label>
+                                <div style="display: flex; gap: 10px;">
+                                    <input type="password" id="novelaiApiKey" placeholder="pst-xxxx..."
+                                        style="flex: 1; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                    <button class="btn btn-info" onclick="testNovelAIConnection()" id="testNovelAIBtn"
+                                        style="white-space: nowrap;">🧪 测试连接</button>
+                                </div>
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    在 NovelAI 账户设置中获取 API Key
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>图片尺寸</label>
+                                <select id="novelaiSize" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                    <option value="832x1216">竖版 (832×1216) - 推荐</option>
+                                    <option value="1216x832">横版 (1216×832)</option>
+                                    <option value="1024x1024">方形 (1024×1024)</option>
+                                    <option value="640x640">小方形 (640×640) - 快速</option>
+                                </select>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>生成步数 (Steps)</label>
+                                <input type="number" id="novelaiSteps" value="28" min="10" max="50"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    步数越高质量越好，但生成越慢（推荐 28）
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>提示词引导强度 (CFG Scale)</label>
+                                <input type="number" id="novelaiScale" value="5" min="1" max="20" step="0.5"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px;">
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    越高越遵循提示词，但可能过度饱和（推荐 5-7）
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>正面提示词前缀 (Positive Prompt Prefix)</label>
+                                <textarea id="novelaiPositivePrompt" rows="2"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px; resize: vertical;"
+                                    placeholder="每次生成图片时自动添加到 AI 提示词前面...">masterpiece, best quality, amazing quality, very aesthetic, absurdres</textarea>
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    此内容会自动添加到 AI 生成的提示词前面
+                                </small>
+                            </div>
+
+                            <div class="config-group" style="margin-top: 15px;">
+                                <label>负向提示词 (Negative Prompt)</label>
+                                <textarea id="novelaiNegativePrompt" rows="3"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px; resize: vertical;"
+                                    placeholder="要避免的内容...">lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry</textarea>
+                            </div>
+
+                            <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+                            <div style="font-weight: bold; color: #c44569; margin-bottom: 10px;">📝 插图提示词模板</div>
+
+                            <div class="config-group">
+                                <label>注入到上下文的插图生成说明</label>
+                                <textarea id="novelaiImagePromptTemplate" rows="10"
+                                    style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 8px; resize: vertical; font-size: 12px;">【插图生成规则】
+请在JSON回复中增加"img"字段，用于生成当前场景的插图。
+
+格式要求：
+"img": "英文提示词，用逗号分隔"
+
+例如：
+"img": "1girl, long white hair, blue eyes, chinese hanfu, standing on cliff, sunset, mountain background, fantasy, detailed"
+
+提示词编写要求：
+- 使用英文，用逗号分隔各个标签
+- 准确描述当前场景、人物外貌、服装、动作、背景、氛围等
+- 根据剧情和人物特征生成合适的提示词
+- 不需要写masterpiece, best quality等质量标签（系统会自动添加）
+- 每次回复都要生成img字段</textarea>
+                                <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                                    此模板会注入到用户输入之前，告诉 AI 如何生成插图提示词
+                                </small>
+                            </div>
+
+                        </div>
+
+                        <button class="btn btn-success" onclick="saveNovelAISettings()"
+                            style="width: 100%; margin-top: 15px;">💾 保存 NovelAI 设置</button>
                     </div>
                 </div>
 
@@ -932,10 +1362,10 @@ rule:
                             <div class="config-group" style="margin-top: 15px;">
                                 <label>
                                     <span>匹配阈值</span>
-                                    <input type="range" id="graphMatchThreshold" min="0" max="100" value="40" 
+                                    <input type="range" id="graphMatchThreshold" min="0" max="100" value="35" 
                                         oninput="document.getElementById('graphMatchThresholdValue').textContent = this.value + '%'"
                                         style="width: 100%;">
-                                    <span id="graphMatchThresholdValue" style="margin-left: 10px;">40%</span>
+                                    <span id="graphMatchThresholdValue" style="margin-left: 10px;">35%</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     只有相似度高于此值的人物才会被加入上下文
@@ -956,10 +1386,10 @@ rule:
                             <div class="config-group" style="margin-top: 15px;">
                                 <label>
                                     <span>姓名权重</span>
-                                    <input type="range" id="graphNameWeight" min="1" max="5" step="0.5" value="3" 
+                                    <input type="range" id="graphNameWeight" min="1" max="5" step="0.5" value="5" 
                                         oninput="document.getElementById('graphNameWeightValue').textContent = this.value"
                                         style="width: 100%;">
-                                    <span id="graphNameWeightValue" style="margin-left: 10px;">3</span>
+                                    <span id="graphNameWeightValue" style="margin-left: 10px;">5</span>
                                 </label>
                                 <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
                                     姓名在向量匹配中的权重（相对于性格和外貌）
@@ -1014,89 +1444,152 @@ rule:
                         </div>
                     </div>
                 </div>
+                </div><!-- End of 扩展 Tab -->
 
-                <button class="btn btn-warning" onclick="viewContext()" style="width: 100%; margin-top: 15px;">👁️
-                    查看上下文</button>
-                
-                <button class="btn btn-danger" onclick="diagnoseMessageDisplay()" style="width: 100%; margin-top: 10px;">🔍
-                    诊断消息显示</button>
-                
-                <button class="btn btn-primary" onclick="rebuildHistoryRecords()" style="width: 100%; margin-top: 10px;">📜
-                    重建历史记录</button>
-                
-                <button class="btn btn-info" onclick="viewVectorLibrary()" style="width: 100%; margin-top: 10px;">🧬
-                    查看向量库</button>
-                
-                <button class="btn btn-success" onclick="syncVectorLibraryFromHistory(true)" style="width: 100%; margin-top: 10px;">🔄
-                    同步向量库</button>
-                
-                <button class="btn btn-info" onclick="viewHistoryMatrix()" style="width: 100%; margin-top: 10px;">📊
-                    查看History矩阵</button>
-
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #667eea; margin-bottom: 10px; font-size: 16px;">📚 静态知识库</h3>
-                    
-                    <button class="btn btn-success" onclick="addNewKBItem()" style="width: 100%; margin-top: 10px;">➕
-                        添加新条目</button>
-                    <button class="btn btn-info" onclick="importKnowledgeBase()" style="width: 100%; margin-top: 10px;">📥
-                        导入知识库</button>
-                    <button class="btn btn-primary" onclick="viewKnowledgeBase()" style="width: 100%; margin-top: 10px;">👁️
-                        查看知识库（含向量）</button>
-                    <button class="btn btn-info" onclick="viewKBVectorStatus()" style="width: 100%; margin-top: 10px;">🔍
-                        查看向量状态</button>
-                    <button class="btn btn-success" onclick="exportKnowledgeBase()" style="width: 100%; margin-top: 10px;">📤
-                        导出知识库</button>
-                    <button class="btn btn-warning" onclick="createKnowledgeTemplate()" style="width: 100%; margin-top: 10px;">📝
-                        创建模板</button>
-                    <button class="btn btn-danger" onclick="clearKnowledgeBase()" style="width: 100%; margin-top: 10px;">🗑️
-                        清空知识库</button>
-                </div>
-
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #ff6b6b; margin-bottom: 10px; font-size: 16px;">🎮 DLC知识包管理</h3>
-                    <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; line-height: 1.6;">
-                        💡 DLC知识包可以将多个相关知识条目组合管理<br>
-                        📦 可整体启用/禁用，也可单独编辑内部条目
+                <!-- ==================== 知识库 Tab ==================== -->
+                <div class="config-tab-content" id="tab-knowledge">
+                <!-- 📚 静态知识库折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('staticKnowledgeSection')">
+                        <span>📚 静态知识库</span>
+                        <span class="arrow">▼</span>
                     </div>
-                    <button class="btn btn-success" onclick="createNewDLC()" style="width: 100%; margin-top: 10px;">📦
-                        创建新DLC</button>
-                    <button class="btn btn-info" onclick="importDLC()" style="width: 100%; margin-top: 10px;">📥
-                        导入DLC包</button>
-                    <button class="btn btn-primary" onclick="manageDLC()" style="width: 100%; margin-top: 10px;">⚙️
-                        管理DLC包</button>
-                    <button class="btn btn-warning" onclick="exportAllDLC()" style="width: 100%; margin-top: 10px;">📤
-                        导出所有DLC</button>
+                    <div class="collapsible-content" id="staticKnowledgeSection">
+                        <button class="btn btn-success" onclick="addNewKBItem()" style="width: 100%; margin-top: 10px;">➕
+                            添加新条目</button>
+                        <button class="btn btn-info" onclick="importKnowledgeBase()" style="width: 100%; margin-top: 10px;">📥
+                            导入知识库</button>
+                        <button class="btn btn-primary" onclick="viewKnowledgeBase()" style="width: 100%; margin-top: 10px;">👁️
+                            查看知识库（含向量）</button>
+                        <button class="btn btn-info" onclick="viewKBVectorStatus()" style="width: 100%; margin-top: 10px;">🔍
+                            查看向量状态</button>
+                        <button class="btn btn-success" onclick="exportKnowledgeBase()" style="width: 100%; margin-top: 10px;">📤
+                            导出知识库</button>
+                        <button class="btn btn-warning" onclick="createKnowledgeTemplate()" style="width: 100%; margin-top: 10px;">📝
+                            创建模板</button>
+                        <button class="btn btn-danger" onclick="clearKnowledgeBase()" style="width: 100%; margin-top: 10px;">🗑️
+                            清空知识库</button>
+                    </div>
                 </div>
 
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #ff6b6b; margin-bottom: 10px; font-size: 16px;">🔐 完整备份（推荐）</h3>
+                <!-- 🎮 DLC知识包管理折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('dlcKnowledgeSection')">
+                        <span>🎮 DLC知识包管理</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="dlcKnowledgeSection">
+                        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; line-height: 1.6;">
+                            💡 DLC知识包可以将多个相关知识条目组合管理<br>
+                            📦 可整体启用/禁用，也可单独编辑内部条目
+                        </div>
+                        <button class="btn btn-success" onclick="createNewDLC()" style="width: 100%; margin-top: 10px;">📦
+                            创建新DLC</button>
+                        <button class="btn btn-info" onclick="importDLC()" style="width: 100%; margin-top: 10px;">📥
+                            导入DLC包</button>
+                        <button class="btn btn-primary" onclick="manageDLC()" style="width: 100%; margin-top: 10px;">⚙️
+                            管理DLC包</button>
+                        <button class="btn btn-warning" onclick="exportAllDLC()" style="width: 100%; margin-top: 10px;">📤
+                            导出所有DLC</button>
+                    </div>
+                </div>
+                </div><!-- End of 知识库 Tab -->
 
-                    <button class="btn btn-danger" onclick="exportCompleteBackup()" 
-                        style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-weight: bold;">
-                        📦 导出完整备份
-                    </button>
-                    <button class="btn btn-warning" onclick="importCompleteBackup()" 
-                        style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); font-weight: bold;">
-                        📥 导入完整备份
-                    </button>
+                <!-- ==================== 工具 Tab ==================== -->
+                <div class="config-tab-content" id="tab-tools">
+                <!-- 🔧 调试工具折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('debugToolsSection')">
+                        <span>🔧 调试工具</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="debugToolsSection">
+                        <button class="btn btn-warning" onclick="viewContext()" style="width: 100%; margin-top: 10px;">👁️
+                            查看上下文</button>
+                        <button class="btn btn-danger" onclick="diagnoseMessageDisplay()" style="width: 100%; margin-top: 10px;">🔍
+                            诊断消息显示</button>
+                        <button class="btn btn-primary" onclick="rebuildHistoryRecords()" style="width: 100%; margin-top: 10px;">📜
+                            重建历史记录</button>
+                    </div>
                 </div>
 
-                <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #ddd;">
-                    <h3 style="color: #667eea; margin-bottom: 10px; font-size: 16px;">存档管理</h3>
-                    <button class="btn btn-success" onclick="saveCurrentGame()"
-                        style="width: 100%; margin-top: 10px;">💾 保存存档</button>
-                    <button class="btn btn-info" onclick="exportCurrentGame()" style="width: 100%; margin-top: 10px;">📤
-                        导出存档</button>
-                    <button class="btn btn-primary" onclick="showLoadSaveMenu()"
-                        style="width: 100%; margin-top: 10px;">📂 加载存档</button>
-                    <button class="btn btn-info" onclick="importSaveFromFile()"
-                        style="width: 100%; margin-top: 10px;">📥 导入存档</button>
+                <!-- 🧬 向量库管理折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('vectorToolsSection')">
+                        <span>🧬 向量库管理</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="vectorToolsSection">
+                        <button class="btn btn-info" onclick="viewVectorLibrary()" style="width: 100%; margin-top: 10px;">🧬
+                            查看向量库</button>
+                        <button class="btn btn-success" onclick="syncVectorLibraryFromHistory(true)" style="width: 100%; margin-top: 10px;">🔄
+                            同步向量库</button>
+                        <button class="btn btn-info" onclick="viewHistoryMatrix()" style="width: 100%; margin-top: 10px;">📊
+                            查看History矩阵</button>
+                    </div>
+                </div>
+
+                <!-- ⚠️ 危险操作折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('dangerZoneSection')">
+                        <span>⚠️ 危险操作</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="dangerZoneSection">
+                        <div style="background: #ffe6e6; padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; line-height: 1.6; color: #cc0000;">
+                            ⚠️ 以下操作不可恢复，请谨慎使用！
+                        </div>
+                        <button class="btn btn-danger" onclick="formatGame()" style="width: 100%; margin-top: 10px;">⚠️
+                            格式化游戏</button>
+                    </div>
+                </div>
+                </div><!-- End of 工具 Tab -->
+
+                <!-- ==================== 存档 Tab ==================== -->
+                <div class="config-tab-content" id="tab-save">
+                <!-- 💾 存档管理折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('saveManageSection')">
+                        <span>💾 存档管理</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="saveManageSection">
+                        <button class="btn btn-success" onclick="saveCurrentGame()"
+                            style="width: 100%; margin-top: 10px;">💾 保存存档</button>
+                        <button class="btn btn-info" onclick="exportCurrentGame()" style="width: 100%; margin-top: 10px;">📤
+                            导出存档</button>
+                        <button class="btn btn-primary" onclick="showLoadSaveMenu()"
+                            style="width: 100%; margin-top: 10px;">📂 加载存档</button>
+                        <button class="btn btn-info" onclick="importSaveFromFile()"
+                            style="width: 100%; margin-top: 10px;">📥 导入存档</button>
+                    </div>
+                </div>
+
+                <!-- 🔐 完整备份折叠区块 -->
+                <div class="collapsible-section">
+                    <div class="collapsible-header" onclick="toggleSection('fullBackupSection')">
+                        <span>🔐 完整备份（推荐）</span>
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="collapsible-content" id="fullBackupSection">
+                        <div style="background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 12px; line-height: 1.6;">
+                            💡 完整备份包含：存档、知识库、DLC、人物图谱等所有数据
+                        </div>
+                        <button class="btn btn-danger" onclick="exportCompleteBackup()" 
+                            style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-weight: bold;">
+                            📦 导出完整备份
+                        </button>
+                        <button class="btn btn-warning" onclick="importCompleteBackup()" 
+                            style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); font-weight: bold;">
+                            📥 导入完整备份
+                        </button>
+                    </div>
                 </div>
 
                 <button class="btn btn-primary" onclick="showMainMenu()" style="width: 100%; margin-top: 15px;">🏠
                     返回主页</button>
-                <button class="btn btn-danger" onclick="formatGame()" style="width: 100%; margin-top: 10px;">⚠️
-                    格式化</button>
+                </div><!-- End of 存档 Tab -->
+
             </div>
         </div>
     </div>
@@ -1117,13 +1610,17 @@ function loadConfigModal() {
         // 直接生成配置弹窗，避免CORS问题
         generateConfigModal();
         
-        // 配置弹窗生成完成后，执行loadConfig与服务端状态渲染
+        // 配置弹窗生成完成后，执行loadConfig
         setTimeout(() => {
             if (typeof loadConfig === 'function') {
                 loadConfig();
             }
             // 加载人物图谱配置
             loadCharacterGraphConfig();
+            // 加载 NovelAI 设置
+            if (typeof loadNovelAISettingsToForm === 'function') {
+                loadNovelAISettingsToForm();
+            }
             // 渲染Go服务端配置状态展示
             updateServerStatusUI();
         }, 100);
@@ -1585,6 +2082,8 @@ function saveMobileConnection() {
 function saveMobilePhoneSettings() {
     const settings = {
         enabled: document.getElementById('enableMobilePhone').checked,
+        // 🆕 酒馆预设模式开关（默认开启）
+        useTavernPresetMode: document.getElementById('mobileUseTavernPresetMode')?.checked !== false,
         useKnowledgeBase: document.getElementById('mobileUseKnowledgeBase').checked,
         useVectorRetrieval: document.getElementById('mobileUseVectorRetrieval').checked,
         useWebSearch: document.getElementById('mobileUseWebSearch').checked,
@@ -1668,6 +2167,10 @@ function loadMobilePhoneConfig() {
             // 填充UI
             if (document.getElementById('enableMobilePhone')) {
                 document.getElementById('enableMobilePhone').checked = window.mobilePhoneSettings.enabled || false;
+            }
+            // 🆕 酒馆预设模式（默认开启）
+            if (document.getElementById('mobileUseTavernPresetMode')) {
+                document.getElementById('mobileUseTavernPresetMode').checked = window.mobilePhoneSettings.useTavernPresetMode !== false;
             }
             if (document.getElementById('mobileUseKnowledgeBase')) {
                 document.getElementById('mobileUseKnowledgeBase').checked = window.mobilePhoneSettings.useKnowledgeBase !== false;
@@ -1939,5 +2442,126 @@ loadConfigModal = function() {
     originalLoadConfigModal();
     setTimeout(() => {
         loadMobilePhoneConfig();
+        injectConfigTabStyles();
     }, 200);
 };
+
+// ==================== Tab切换功能 ====================
+
+// 切换配置Tab
+function switchConfigTab(tabName) {
+    // 移除所有tab的active状态
+    document.querySelectorAll('.config-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // 隐藏所有tab内容
+    document.querySelectorAll('.config-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    
+    // 激活选中的tab
+    const selectedTab = document.querySelector(`.config-tab[data-tab="${tabName}"]`);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+    }
+    
+    // 显示选中的tab内容
+    const selectedContent = document.getElementById(`tab-${tabName}`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+    }
+    
+    // 保存当前tab到localStorage
+    localStorage.setItem('configModalActiveTab', tabName);
+}
+
+// 注入Tab样式
+function injectConfigTabStyles() {
+    if (document.getElementById('config-tab-styles')) return;
+    
+    const styleElement = document.createElement('style');
+    styleElement.id = 'config-tab-styles';
+    styleElement.textContent = `
+        /* Tab导航栏样式 */
+        .config-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px 15px;
+            margin: -15px -15px 0 -15px;
+            border-radius: 10px 10px 0 0;
+        }
+        
+        .config-tab {
+            padding: 8px 12px;
+            margin:0 4px;
+            border: none;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: #495057;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .config-tab:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+        
+        .config-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Tab内容区域样式 */
+        .config-tab-content {
+            display: none;
+        }
+        
+        .config-tab-content.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 折叠区块优化 */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .collapsible-header:hover {
+            background: linear-gradient(135deg, #667eea22 0%, #764ba222 100%);
+        }
+        
+        /* 响应式适配 */
+        @media (max-width: 600px) {
+            .config-tabs {
+                gap: 3px;
+                padding: 8px 10px;
+            }
+            
+            .config-tab {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+        }
+    `;
+    
+    document.head.appendChild(styleElement);
+    
+    // 恢复上次选中的tab
+    const savedTab = localStorage.getItem('configModalActiveTab');
+    if (savedTab) {
+        setTimeout(() => switchConfigTab(savedTab), 100);
+    }
+}

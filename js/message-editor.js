@@ -216,6 +216,20 @@
             gameState.dynamicWorld.floor = dynamicWorldBackup.floor;
             console.log('[重新发送] 已保护动态世界数据不被回滚');
             
+            // 🆕 从人物图谱中删除对应轮次添加的人物
+            if (window.characterGraphManager && typeof window.characterGraphManager.deleteCharactersByTurnRange === 'function') {
+                const currentTurnIndex = Math.floor(historyIndex / 2) + 1;
+                const endTurnIndex = Math.floor((historyIndex + deleteCount) / 2);
+                
+                window.characterGraphManager.deleteCharactersByTurnRange(currentTurnIndex, endTurnIndex)
+                    .then(deletedNames => {
+                        if (deletedNames.length > 0) {
+                            console.log(`[重新发送] 人物图谱回滚删除了 ${deletedNames.length} 个人物`);
+                        }
+                    })
+                    .catch(err => console.warn('[重新发送] 人物图谱回滚失败:', err));
+            }
+            
             // 删除历史记录中的这条用户消息（准备重新发送）
             if (historyIndex < gameState.conversationHistory.length) {
                 gameState.conversationHistory.splice(historyIndex, 1);
@@ -242,15 +256,50 @@
             // 显示加载提示（在用户消息之后）
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message ai-message';
-            loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> AI重新思考中...</div>';
+            loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> 用户输入分析中...</div>';
             loadingDiv.id = 'loading-message';
             historyDiv.appendChild(loadingDiv);
             
             try {
-                // 🎯 使用统一函数构建增强提示
-                const enhancedMessage = buildEnhancedPrompt(messageText);
-                
                 console.log('🔄 [重新发送] 原始用户消息:', messageText);
+                
+                // 🎭 用户画像分析（重新发送时也要分析）
+                let analysisEnhancement = '';
+                if (window.userProfileAnalyzer && window.userProfileAnalyzer.isEnabled()) {
+                    try {
+                        console.log('[🎭用户画像] 重新发送：开始分析用户输入...');
+                        const gameContext = {
+                            currentLocation: gameState.variables.location || '未知',
+                            characterName: gameState.variables.name || '未知',
+                            realm: gameState.variables.realm || '凡人'
+                        };
+                        const analysisResult = await window.userProfileAnalyzer.analyzeUserInput(messageText, gameContext);
+                        if (analysisResult) {
+                            console.log('[🎭用户画像] 重新发送：分析完成', analysisResult);
+                            if (analysisResult.enhancedPrompt) {
+                                analysisEnhancement = `\n\n【用户意图分析】\n${analysisResult.enhancedPrompt}`;
+                            }
+                            if (analysisResult.plotPlanning) {
+                                const pp = analysisResult.plotPlanning;
+                                analysisEnhancement += `\n\n【剧情规划建议】\n1. ${pp.step1 || ''}\n2. ${pp.step2 || ''}\n3. ${pp.step3 || ''}`;
+                            }
+                        }
+                    } catch (analysisErr) {
+                        console.warn('[🎭用户画像] 重新发送：分析失败', analysisErr);
+                    }
+                }
+                
+                // 更新加载提示
+                loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> AI思考中...</div>';
+                
+                // 🎯 使用统一函数构建增强提示
+                let enhancedMessage = buildEnhancedPrompt(messageText);
+                
+                // 🎭 附加用户画像分析结果
+                if (analysisEnhancement) {
+                    enhancedMessage += analysisEnhancement;
+                }
+                
                 console.log('🔄 [重新发送] 增强后的Prompt:', enhancedMessage);
                 
                 // 🔧 重新发送消息给AI（messageText是原始输入，可直接用于检索）
@@ -404,6 +453,19 @@
                 gameState.dynamicWorld.messageCounter = dynamicWorldBackup.messageCounter;
                 console.log('[重新生成] 已保护动态世界数据不被回滚');
 
+                // 🆕 从人物图谱中删除当前轮次添加的人物
+                if (window.characterGraphManager && typeof window.characterGraphManager.deleteCharactersByTurnRange === 'function') {
+                    const currentTurn = Math.floor(gameState.conversationHistory.length / 2);
+                    
+                    window.characterGraphManager.deleteCharactersByTurnRange(currentTurn, currentTurn)
+                        .then(deletedNames => {
+                            if (deletedNames.length > 0) {
+                                console.log(`[重新生成] 人物图谱回滚删除了 ${deletedNames.length} 个人物`);
+                            }
+                        })
+                        .catch(err => console.warn('[重新生成] 人物图谱回滚失败:', err));
+                }
+
                 // 🆕 只有当确实有AI消息时，才删除UI中的AI消息
                 // 删除UI中最后一条AI消息（排除动态世界消息和加载提示）
                 const historyDiv = document.getElementById('gameHistory');
@@ -443,18 +505,52 @@
             // 🆕 在控制台显示重新生成的提示
             console.log('🔄 [重新生成] 原始用户消息:', lastUserMessage);
 
-            // 🎯 使用统一函数构建增强提示
-            const enhancedMessage = buildEnhancedPrompt(lastUserMessage);
-            
-            console.log('🔄 [重新生成] 增强后的Prompt:', enhancedMessage);
-
             // 显示加载提示
             const historyDiv = document.getElementById('gameHistory');
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message ai-message';
-            loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> AI重新思考中...</div>';
+            loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> 用户输入分析中...</div>';
             loadingDiv.id = 'loading-message';
             historyDiv.appendChild(loadingDiv);
+
+            // 🎭 用户画像分析（重新生成时也要分析）
+            let analysisEnhancement = '';
+            if (window.userProfileAnalyzer && window.userProfileAnalyzer.isEnabled()) {
+                try {
+                    console.log('[🎭用户画像] 重新生成：开始分析用户输入...');
+                    const gameContext = {
+                        currentLocation: gameState.variables.location || '未知',
+                        characterName: gameState.variables.name || '未知',
+                        realm: gameState.variables.realm || '凡人'
+                    };
+                    const analysisResult = await window.userProfileAnalyzer.analyzeUserInput(lastUserMessage, gameContext);
+                    if (analysisResult) {
+                        console.log('[🎭用户画像] 重新生成：分析完成', analysisResult);
+                        if (analysisResult.enhancedPrompt) {
+                            analysisEnhancement = `\n\n【用户意图分析】\n${analysisResult.enhancedPrompt}`;
+                        }
+                        if (analysisResult.plotPlanning) {
+                            const pp = analysisResult.plotPlanning;
+                            analysisEnhancement += `\n\n【剧情规划建议】\n1. ${pp.step1 || ''}\n2. ${pp.step2 || ''}\n3. ${pp.step3 || ''}`;
+                        }
+                    }
+                } catch (analysisErr) {
+                    console.warn('[🎭用户画像] 重新生成：分析失败', analysisErr);
+                }
+            }
+
+            // 更新加载提示
+            loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> AI重新思考中...</div>';
+            
+            // 🎯 使用统一函数构建增强提示
+            let enhancedMessage = buildEnhancedPrompt(lastUserMessage);
+            
+            // 🎭 附加用户画像分析结果
+            if (analysisEnhancement) {
+                enhancedMessage += analysisEnhancement;
+            }
+            
+            console.log('🔄 [重新生成] 增强后的Prompt:', enhancedMessage);
 
             try {
                 // 从历史记录中临时移除用户消息，避免在buildAIMessages中重复

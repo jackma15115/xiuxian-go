@@ -74,7 +74,7 @@ async function callServerSSE(url, payload) {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop(); // 未完成的行放回 buffer
+            buffer = lines.pop(); // 未完成的行放入 buffer
 
             for (const line of lines) {
                 const trimmed = line.trim();
@@ -135,6 +135,8 @@ async function callServerSSE(url, payload) {
     return fullContent;
 }
 
+// ==================== API调用函数 ====================
+
 // 调用额外API
 async function callExtraAPI(messages) {
     const sCfg = await checkServerConfig();
@@ -148,7 +150,6 @@ async function callExtraAPI(messages) {
             temperature: 0.9
         });
     }
-
     const endpoint = extraApiConfig.type === 'gemini' 
         ? `${extraApiConfig.endpoint}/models/${extraApiConfig.model}:generateContent?key=${extraApiConfig.key}`
         : `${extraApiConfig.endpoint}/chat/completions`;
@@ -218,6 +219,7 @@ async function callAI(userMessage, isTest = false, originalUserInput = null) {
     const sCfg = await checkServerConfig();
 
     let messages = [];
+
     if (!isTest) {
         // 🔧 传入原始用户输入（用于向量检索）
         messages = await buildAIMessages(userMessage, originalUserInput);
@@ -411,6 +413,7 @@ async function callOpenAI(messages) {
     }
 
     const data = await response.json();
+    console.log('API原始响应:', data);
     return data.choices[0].message.content;
 }
 
@@ -606,16 +609,34 @@ async function callMobileGemini(messages) {
 /**
  * 为手机构建完整的AI消息上下文
  * 支持知识库、向量检索、人物图谱、History矩阵等功能
+ * 🆕 支持酒馆预设模式（useTavernPresetMode）
  * @param {string} userMessage - 用户消息
  * @param {string} chatContext - 聊天对象上下文（如聊天对象名称）
+ * @param {string} mobileSystemPrompt - 可选，手机模块专用系统提示词（用于酒馆预设模式）
+ * @param {Object} options - 可选配置（enableNSFW等）
  * @returns {Promise<Array>} - 构建好的messages数组
  */
-async function buildMobileAIMessages(userMessage, chatContext = '') {
+async function buildMobileAIMessages(userMessage, chatContext = '', mobileSystemPrompt = '', options = {}) {
     const settings = window.mobilePhoneSettings || {};
     const showDetails = settings.showBuildDetails !== false;
     
+    // 🆕 检查是否启用酒馆预设模式（默认开启）
+    // 注意：全局变量名是 contextVectorManager，不是 contextManager
+    if (settings.useTavernPresetMode !== false && window.contextVectorManager && window.contextVectorManager.buildMobileOptimizedMessages) {
+        if (showDetails) {
+            console.log('[📱手机上下文构建] 🎭 使用酒馆预设模式');
+        }
+        try {
+            return await window.contextVectorManager.buildMobileOptimizedMessages(userMessage, chatContext, mobileSystemPrompt, options);
+        } catch (e) {
+            console.error('[📱手机上下文构建] 酒馆预设模式构建失败，回退到传统模式:', e);
+            // 失败时回退到传统模式
+        }
+    }
+    
+    // ==================== 传统模式 ====================
     if (showDetails) {
-        console.log('[📱手机上下文构建] ==== 开始构建 ====');
+        console.log('[📱手机上下文构建] ==== 开始构建（传统模式） ====');
         console.log('[📱手机上下文构建] 用户消息:', userMessage);
         console.log('[📱手机上下文构建] 聊天上下文:', chatContext);
     }
@@ -623,9 +644,9 @@ async function buildMobileAIMessages(userMessage, chatContext = '') {
     let contextParts = [];
     
     // 1. 知识库检索
-    if (settings.useKnowledgeBase && window.contextManager && window.contextManager.staticKnowledgeBase) {
+    if (settings.useKnowledgeBase && window.contextVectorManager && window.contextVectorManager.staticKnowledgeBase) {
         try {
-            const kbResults = await window.contextManager.retrieveFromStaticKB(userMessage);
+            const kbResults = await window.contextVectorManager.retrieveFromStaticKB(userMessage);
             if (kbResults && kbResults.length > 0) {
                 const kbContent = kbResults.map(r => `【${r.title}】\n${r.content}`).join('\n\n');
                 contextParts.push(`【知识库参考】\n${kbContent}`);
@@ -639,9 +660,9 @@ async function buildMobileAIMessages(userMessage, chatContext = '') {
     }
     
     // 2. 向量检索历史
-    if (settings.useVectorRetrieval && window.contextManager) {
+    if (settings.useVectorRetrieval && window.contextVectorManager) {
         try {
-            const vectorResults = await window.contextManager.retrieveRelevantHistory(userMessage);
+            const vectorResults = await window.contextVectorManager.retrieveRelevantHistory(userMessage);
             if (vectorResults && vectorResults.length > 0) {
                 const vectorContent = vectorResults.map(r => r.summary || `用户:${r.userMessage}\nAI:${r.aiResponse?.substring(0, 200)}...`).join('\n---\n');
                 contextParts.push(`【相关历史记忆】\n${vectorContent}`);

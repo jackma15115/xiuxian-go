@@ -196,8 +196,20 @@ class VariableInstructionParserV31 {
         
         // 检查是否是关系操作（包含点号）
         // 排除系统变量：attributes, items, history, bodyParts, faction 等
-        const systemPrefixes = ['items.', 'history.', 'attributes.', 'bodyParts.', 'faction.', 'equipment.'];
+        const systemPrefixes = ['items.', 'history.', 'attributes.', 'bodyParts.', 'faction.', 'equipment.', 'specialStatus.'];
         const isSystemVariable = systemPrefixes.some(prefix => key.startsWith(prefix));
+        
+        // 特殊处理 protagonist（主角详细信息，存储在 gameState.variables.protagonist）
+        if (key.startsWith('protagonist.')) {
+            this.processProtagonist(key, value);
+            return;
+        }
+        
+        // 特殊处理 specialStatus（特殊状态，存储在 gameState.variables.specialStatus）
+        if (key.startsWith('specialStatus.')) {
+            this.processSpecialStatus(key, value);
+            return;
+        }
         
         if (key.includes('.') && !isSystemVariable) {
             this.processRelationship(key, value);
@@ -344,6 +356,119 @@ class VariableInstructionParserV31 {
         } else {
             // 解析值（移除引号、解析布尔值等）
             current[finalKey] = this.parseValue(value);
+        }
+    }
+    
+    /**
+     * 处理主角详细信息
+     * 格式：protagonist.appearance: 描述 或 protagonist.bodyParts.penis.useCount: +1
+     */
+    processProtagonist(key, value) {
+        // 去掉 protagonist. 前缀，获取属性路径
+        const attrPath = key.substring('protagonist.'.length).split('.');
+        
+        // 确保 protagonist 对象存在
+        if (!this.gameState.variables.protagonist) {
+            this.gameState.variables.protagonist = {};
+        }
+        
+        const protagonist = this.gameState.variables.protagonist;
+        
+        // 处理嵌套属性（如 bodyParts.penis.useCount）
+        if (attrPath.length > 1) {
+            this.setNestedValue(protagonist, attrPath, value);
+            this.log(`[主角] protagonist.${attrPath.join('.')} = ${value}`);
+            return;
+        }
+        
+        // 单层属性（如 appearance, isVirgin）
+        const attr = attrPath[0];
+        
+        // 处理数值操作
+        if (/^[+\-=]/.test(value)) {
+            const operator = value[0];
+            const restValue = value.substring(1);
+            const num = parseFloat(restValue);
+            const current = protagonist[attr] || 0;
+            
+            // 检查是否是布尔值赋值（如 =true 或 =false）
+            if (operator === '=' && isNaN(num)) {
+                protagonist[attr] = this.parseValue(restValue);
+                this.log(`[主角] protagonist.${attr} = ${protagonist[attr]} (布尔/字符串)`);
+            } else {
+                switch (operator) {
+                    case '+':
+                        protagonist[attr] = current + num;
+                        break;
+                    case '-':
+                        protagonist[attr] = current - num;
+                        break;
+                    case '=':
+                        protagonist[attr] = num;
+                        break;
+                }
+                this.log(`[主角] protagonist.${attr}: ${current} → ${protagonist[attr]}`);
+            }
+        } else {
+            // 直接设置字符串值
+            protagonist[attr] = this.parseValue(value);
+            this.log(`[主角] protagonist.${attr} = ${protagonist[attr]}`);
+        }
+    }
+    
+    /**
+     * 处理特殊状态
+     * 格式：specialStatus.催情药.active: =true 或 specialStatus.催情药.effect: 攻击力-3
+     */
+    processSpecialStatus(key, value) {
+        // 去掉 specialStatus. 前缀，获取属性路径
+        const attrPath = key.substring('specialStatus.'.length).split('.');
+        
+        // 确保 specialStatus 对象存在
+        if (!this.gameState.variables.specialStatus) {
+            this.gameState.variables.specialStatus = {};
+        }
+        
+        const specialStatus = this.gameState.variables.specialStatus;
+        
+        // attrPath[0] 是状态名（如 "催情药"），attrPath[1] 是属性（如 "active", "effect"）
+        const statusName = attrPath[0];
+        const attr = attrPath[1] || 'active';
+        
+        // 确保该状态对象存在
+        if (!specialStatus[statusName]) {
+            specialStatus[statusName] = {};
+        }
+        
+        // 处理值
+        if (/^[+\-=]/.test(value)) {
+            const operator = value[0];
+            const restValue = value.substring(1);
+            const num = parseFloat(restValue);
+            
+            // 检查是否是布尔值或字符串赋值（如 =true 或 =false）
+            if (operator === '=' && isNaN(num)) {
+                specialStatus[statusName][attr] = this.parseValue(restValue);
+                this.log(`[特殊状态] ${statusName}.${attr} = ${specialStatus[statusName][attr]}`);
+            } else {
+                const current = specialStatus[statusName][attr] || 0;
+                switch (operator) {
+                    case '+':
+                        specialStatus[statusName][attr] = current + num;
+                        break;
+                    case '-':
+                        specialStatus[statusName][attr] = current - num;
+                        break;
+                    case '=':
+                        specialStatus[statusName][attr] = num;
+                        break;
+                }
+                this.log(`[特殊状态] ${statusName}.${attr}: ${current} → ${specialStatus[statusName][attr]}`);
+            }
+        } else {
+            // 直接设置字符串值
+            specialStatus[statusName][attr] = this.parseValue(value);
+            this.log(`[特殊状态] ${statusName}.${attr} = ${specialStatus[statusName][attr]}`);
         }
     }
     

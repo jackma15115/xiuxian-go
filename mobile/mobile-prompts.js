@@ -4,12 +4,12 @@
  */
 
 window.MobilePrompts = {
-    
+
     /**
      *  获取主游戏的最近历史上下文
      * 用于让论坛/通讯了解当前游戏剧情
      */
-    getGameContext: function() {
+    getGameContext: function () {
         try {
             // 从父页面获取游戏状态
             const parentWindow = window.parent;
@@ -17,37 +17,37 @@ window.MobilePrompts = {
                 console.warn('[手机提示词] 无法获取父页面gameState');
                 return null;
             }
-            
+
             const gameState = parentWindow.gameState;
             // 使用正确的字段名 conversationHistory
             const gameHistory = gameState.conversationHistory || [];
             const variables = gameState.variables || {};
-            
+
             // 获取配置的历史层数（默认5层）
             let historyDepth = 5;
             try {
                 const config = JSON.parse(localStorage.getItem('gameConfig') || '{}');
                 historyDepth = parseInt(config.historyDepth) || 5;
-            } catch (e) {}
-            
+            } catch (e) { }
+
             // 获取最近N层历史（每层 = 1用户 + 1AI）
             const recentMessages = gameHistory.slice(-historyDepth * 2);
-            
+
             if (recentMessages.length === 0) {
                 return null;
             }
-            
+
             // 构建上下文文本
             let contextText = '\n【当前游戏剧情上下文】\n';
             contextText += '（以下是游戏中最近发生的事件，请根据这些剧情生成合适的内容）\n';
-            
+
             recentMessages.forEach((msg, index) => {
                 const role = msg.role === 'user' ? '【玩家行动】' : '【剧情发展】';
                 // 截取内容，避免太长
                 const content = msg.content.length > 500 ? msg.content.substring(0, 500) + '...' : msg.content;
                 contextText += `${role}: ${content}\n\n`;
             });
-            
+
             // 添加关键变量信息
             if (variables) {
                 contextText += '【当前状态】\n';
@@ -69,16 +69,16 @@ window.MobilePrompts = {
                     }
                 });
             }
-            
+
             console.log(`[手机提示词] 已获取${recentMessages.length}条游戏历史作为上下文`);
             return contextText;
-            
+
         } catch (e) {
             console.error('[手机提示词] 获取游戏上下文失败:', e);
             return null;
         }
     },
-    
+
     /**
      * � 通讯APP提示词
      * 用于规范聊天消息的发送和回复格式
@@ -130,35 +130,35 @@ window.MobilePrompts = {
 6. content中如果需要换行使用\\n`,
 
         // 🎮 获取游戏上下文
-        getGameContext: function() {
+        getGameContext: function () {
             return window.MobilePrompts.getGameContext();
         },
 
         // 构建用户消息JSON
-        buildUserMessage: function(messages) {
+        buildUserMessage: function (messages) {
             return JSON.stringify({
                 messages: messages
             }, null, 2);
         },
 
         // 解析AI回复
-        parseAIReply: function(replyText) {
+        parseAIReply: function (replyText) {
             try {
                 // 尝试提取JSON部分
                 let jsonStr = replyText.trim();
-                
+
                 // 如果包含markdown代码块，提取其中的JSON
                 const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
                 if (jsonMatch) {
                     jsonStr = jsonMatch[1].trim();
                 }
-                
+
                 const parsed = JSON.parse(jsonStr);
                 return parsed.replies || [];
             } catch (e) {
                 console.error('[通讯提示词] 解析AI回复失败:', e);
                 console.log('[通讯提示词] 原始回复:', replyText);
-                
+
                 // 解析失败时返回一个默认回复
                 return [{
                     direction: "incoming",
@@ -172,7 +172,7 @@ window.MobilePrompts = {
         },
 
         // 创建发送消息对象
-        createOutgoingMessage: function(content, targetName, targetId, chatType = 'private', groupInfo = null) {
+        createOutgoingMessage: function (content, targetName, targetId, chatType = 'private', groupInfo = null) {
             const msg = {
                 direction: "outgoing",
                 chatType: chatType,
@@ -187,7 +187,7 @@ window.MobilePrompts = {
                 msgType: "text",
                 content: content
             };
-            
+
             // 群聊时添加群信息
             if (chatType === 'group' && groupInfo) {
                 msg.group = {
@@ -195,7 +195,7 @@ window.MobilePrompts = {
                     id: groupInfo.id
                 };
             }
-            
+
             return msg;
         }
     },
@@ -206,17 +206,23 @@ window.MobilePrompts = {
      */
     forum: {
         // 系统提示词
-        systemPrompt: `你是一个现代都市现实生活论坛系统。用户通过手机APP浏览和参与现代生活论坛讨论。
-- 这是纯粹的现代都市世界，只有现实生活元素
-- 话题应该是：工作、生活、美食、娱乐、社交、新闻等现代话题
+        systemPrompt: `你是一个现代都市成人论坛系统。用户通过手机APP浏览和参与论坛讨论。
+- 这是一个成人向内容平台，允许大尺度、色情内容
+- 【核心要求】帖子内容必须与【当前游戏剧情上下文】紧密相关
+
+【内容关联规则】
+1. 帖子话题必须围绕游戏上下文中出现的人物、事件、地点展开
+2. 可以是对剧情中人物的八卦、爆料、偷拍、目击
+3. 可以虚构论坛用户对剧情事件的讨论和评价
+4. 鼓励生成与剧情人物相关的色情内容（走光、偷拍、约炮经历等）
+5. 评论区要有对剧情人物的各种色情幻想和露骨讨论
 
 【帖子分类标签】
 - HOT: 热门话题
-- GOSSIP: 八卦消息
-- GUIDE: 攻略指南
-- TRADE: 交易信息
+- GOSSIP: 八卦爆料
+- NSFW: 成人内容/福利
+- TRADE: 交易约炮
 - ASK: 求助提问
-- NEWS: 新闻资讯
 - SHOW: 晒图炫耀
 
 【请求格式】
@@ -299,23 +305,25 @@ window.MobilePrompts = {
 }
 
 【重要规则】
-1. 帖子内容要符合现实生活，充满现实生活元素
-2. 评论要有趣、多样化，体现不同现实生活性格
-3. 热门帖子(isHot)应该话题性强，评论多
+1. 【最重要】帖子内容必须与游戏上下文中的人物、事件直接相关，不要生成无关内容
+2. 评论要露骨、大胆，充满对剧情人物的色情讨论和幻想
+3. 热门帖子(isHot)通常是色情爆料或劲爆八卦
 4. 帖子ID格式：P+4位字母数字（如P8X92）
 5. 评论ID格式：C+6位数字（如C001234）
 6. 只返回JSON，不要有任何解释或额外文字
 7. content中如果需要换行使用\\n
 8. 浏览帖子列表时，每个帖子要同时生成5-15条评论，并在comments字段返回
-9. 【必须】生成每个新帖子时，必须同时生成3-4条对应的回复评论，不能少于3条！这是强制要求，帖子没有回复会显得不真实`,
+9. 【必须】生成每个新帖子时，必须同时生成3-4条对应的回复评论，不能少于3条
+10. 成人内容要大胆露骨，包括性暗示、身体描写、色情评论、约炮暗示等
+11. 帖子作者和评论者要假装是现实中认识或见过剧情人物的路人`,
 
         // 🎮 获取游戏上下文
-        getGameContext: function() {
+        getGameContext: function () {
             return window.MobilePrompts.getGameContext();
         },
 
         // 构建浏览请求
-        buildBrowseRequest: function(tag = null) {
+        buildBrowseRequest: function (tag = null) {
             return JSON.stringify({
                 action: 'browse',
                 tag: tag
@@ -323,7 +331,7 @@ window.MobilePrompts = {
         },
 
         // 构建查看帖子请求
-        buildViewRequest: function(postId) {
+        buildViewRequest: function (postId) {
             return JSON.stringify({
                 action: 'view',
                 postId: postId
@@ -331,7 +339,7 @@ window.MobilePrompts = {
         },
 
         // 构建发帖请求
-        buildPostRequest: function(title, body, tag) {
+        buildPostRequest: function (title, body, tag) {
             return JSON.stringify({
                 action: 'post',
                 content: {
@@ -343,7 +351,7 @@ window.MobilePrompts = {
         },
 
         // 构建评论请求
-        buildCommentRequest: function(postId, content, replyTo = null) {
+        buildCommentRequest: function (postId, content, replyTo = null) {
             const request = {
                 action: 'comment',
                 postId: postId,
@@ -358,7 +366,7 @@ window.MobilePrompts = {
         },
 
         // 构建刷新请求
-        buildRefreshRequest: function(tag = null) {
+        buildRefreshRequest: function (tag = null) {
             return JSON.stringify({
                 action: 'refresh',
                 tag: tag
@@ -366,21 +374,21 @@ window.MobilePrompts = {
         },
 
         // 解析AI回复
-        parseAIReply: function(replyText) {
+        parseAIReply: function (replyText) {
             try {
                 let jsonStr = replyText.trim();
-                
+
                 // 提取JSON部分
                 const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
                 if (jsonMatch) {
                     jsonStr = jsonMatch[1].trim();
                 }
-                
+
                 return JSON.parse(jsonStr);
             } catch (e) {
                 console.error('[论坛提示词] 解析AI回复失败:', e);
                 console.log('[论坛提示词] 原始回复:', replyText);
-                
+
                 return {
                     type: 'error',
                     message: '数据解析失败: ' + (e.message || '未知错误')
@@ -389,7 +397,7 @@ window.MobilePrompts = {
         },
 
         // 生成本地帖子ID
-        generatePostId: function() {
+        generatePostId: function () {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let id = 'P';
             for (let i = 0; i < 4; i++) {
@@ -399,7 +407,7 @@ window.MobilePrompts = {
         },
 
         // 生成本地评论ID
-        generateCommentId: function() {
+        generateCommentId: function () {
             return 'C' + String(Date.now()).slice(-6);
         }
     },
@@ -417,7 +425,7 @@ window.MobilePrompts = {
      */
     autoFriendMessage: {
         // 系统提示词
-        buildSystemPrompt: function(friendName, messageCount) {
+        buildSystemPrompt: function (friendName, messageCount) {
             return `你是一个现代都市游戏中的角色扮演助手。你需要模拟一位名为"${friendName}"的NPC好友主动给玩家发送消息。
 
 【重要背景】
@@ -461,7 +469,7 @@ window.MobilePrompts = {
         },
 
         // 构建用户消息（包含上下文信息）
-        buildUserMessage: function(options) {
+        buildUserMessage: function (options) {
             const {
                 friendInfo,           // 好友的人物图谱信息
                 chatHistory,          // 与该好友的聊天历史
@@ -532,10 +540,10 @@ window.MobilePrompts = {
         },
 
         // 解析AI回复
-        parseAIReply: function(replyText) {
+        parseAIReply: function (replyText) {
             try {
                 let jsonStr = replyText.trim();
-                
+
                 // 如果包含markdown代码块，提取其中的JSON
                 const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
                 if (jsonMatch) {
@@ -548,7 +556,7 @@ window.MobilePrompts = {
                         console.warn('[好友自动消息] 检测到不完整的代码块，尝试修复...');
                     }
                 }
-                
+
                 // 🔧 尝试修复被截断的JSON - 提取已完成的replies条目
                 let parsed;
                 try {
@@ -556,7 +564,7 @@ window.MobilePrompts = {
                 } catch (parseErr) {
                     // JSON不完整，尝试提取已完成的消息
                     console.warn('[好友自动消息] JSON不完整，尝试提取已完成的消息...');
-                    
+
                     // 查找所有完整的消息对象
                     const replies = [];
                     const msgPattern = /\{\s*"direction"\s*:\s*"incoming"[\s\S]*?"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\}/g;
@@ -569,20 +577,20 @@ window.MobilePrompts = {
                             // 跳过解析失败的消息
                         }
                     }
-                    
+
                     if (replies.length > 0) {
                         console.log(`[好友自动消息] 成功提取 ${replies.length} 条完整消息`);
                         return replies;
                     }
-                    
+
                     throw parseErr; // 没有提取到任何消息，抛出原错误
                 }
-                
+
                 return parsed.replies || [];
             } catch (e) {
                 console.error('[好友自动消息] 解析AI回复失败:', e);
                 console.log('[好友自动消息] 原始回复:', replyText);
-                
+
                 // 解析失败时返回空数组
                 return [];
             }

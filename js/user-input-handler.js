@@ -59,11 +59,55 @@ async function sendUserInput() {
     historyDiv.scrollTop = historyDiv.scrollHeight;
 
     try {
+        // 🎭 用户输入分析（如果启用）
+        let userProfileEnhancement = '';
+        if (window.userProfileAnalyzer && window.userProfileAnalyzer.isEnabled()) {
+            console.log('[🎭用户画像] 正在分析用户输入...');
+            
+            // 更新加载提示
+            const loadingEl = document.getElementById('loading-message');
+            if (loadingEl) {
+                loadingEl.innerHTML = '<div class="message-content"><span class="loading"></span> 正在分析用户意图...</div>';
+            }
+            
+            try {
+                // 构建游戏上下文（传递给分析API）
+                const gameContext = {
+                    currentLocation: gameState.variables.location || '未知',
+                    currentScene: gameState.conversationHistory.slice(-2).map(h => h.content?.substring(0, 200)).join('\n'),
+                    characterName: gameState.variables.name || '未知',
+                    realm: gameState.variables.realm || '凡人'
+                };
+                
+                const analysisResult = await window.userProfileAnalyzer.analyze(userText, gameContext);
+                
+                if (analysisResult) {
+                    userProfileEnhancement = window.userProfileAnalyzer.getEnhancedPrompt(analysisResult);
+                    console.log('[🎭用户画像] 分析完成，增强提示已生成');
+                }
+            } catch (analysisError) {
+                console.warn('[🎭用户画像] 分析失败，将使用原始输入:', analysisError);
+            }
+            
+            // 恢复加载提示
+            if (loadingEl) {
+                loadingEl.innerHTML = '<div class="message-content"><span class="loading"></span> AI思考中...</div>';
+            }
+        }
+        
         // 🎯 使用统一函数构建增强提示
-        const enhancedInput = buildEnhancedPrompt(userText);
+        let enhancedInput = buildEnhancedPrompt(userText);
+        
+        // 🎭 如果有用户画像增强，添加到提示中
+        if (userProfileEnhancement) {
+            enhancedInput = userProfileEnhancement + '\n\n---\n\n' + enhancedInput;
+        }
 
         // 🆕 在控制台显示完整的增强提示
         console.log('📤 [原始用户输入]', userText);
+        if (userProfileEnhancement) {
+            console.log('🎭 [用户画像增强]', userProfileEnhancement);
+        }
         console.log('🤖 [发送给AI的完整Prompt]', enhancedInput);
 
         // 🔧 传入原始用户输入（用于向量检索）
@@ -181,17 +225,13 @@ async function sendUserInput() {
         }
 
         // 显示AI消息
-        function displayAIMessage(story, options, reasoning = null, originalResponse = null) {
+        // isRestore: 是否从存档恢复（恢复时不自动生成图片，只显示"点击生成"按钮）
+        function displayAIMessage(story, options, reasoning = null, imgPrompt = null, isRestore = false) {
             const historyDiv = document.getElementById('gameHistory');
 
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message ai-message';
             messageDiv.setAttribute('data-message-index', historyDiv.children.length);
-            
-            // 🔧 保存原始响应（用于调试）
-            if (originalResponse) {
-                messageDiv.originalResponse = originalResponse;
-            }
 
             const headerDiv = document.createElement('div');
             headerDiv.className = 'message-header';
@@ -223,9 +263,105 @@ async function sendUserInput() {
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'message-content';
-            contentDiv.textContent = story;
+            
+            // 🎨 如果启用了 NovelAI 且故事中包含 img: 格式，处理图片提示词
+            const hasImagePrompt = story && story.includes('img:');
+            if (hasImagePrompt && window.novelAIGenerator && window.novelAIGenerator.enabled && typeof processStoryWithImages === 'function') {
+                contentDiv.innerHTML = processStoryWithImages(story);
+            } else {
+                contentDiv.textContent = story;
+            }
 
             messageDiv.appendChild(contentDiv);
+            
+            // 🎨 如果有独立的 img 字段且启用了 NovelAI，生成图片
+            console.log('[displayAIMessage] 🖼️ 收到 imgPrompt:', imgPrompt ? imgPrompt.substring(0, 50) + '...' : '无');
+            console.log('[displayAIMessage] 🎨 NovelAI 启用状态:', window.novelAIGenerator ? window.novelAIGenerator.enabled : 'generator不存在');
+            console.log('[displayAIMessage] 📦 isRestore:', isRestore);
+            if (imgPrompt && window.novelAIGenerator && window.novelAIGenerator.enabled) {
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'nai-image-container';
+                
+                // 🎨 如果是存档恢复，显示可编辑的提示词界面
+                if (isRestore) {
+                    // 生成唯一ID用于标识这个编辑器
+                    const editorId = 'nai-editor-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                    imgContainer.innerHTML = `
+                        <div class="nai-image-restore-placeholder" data-editor-id="${editorId}">
+                            <div class="nai-restore-actions">
+                                <button class="nai-btn nai-restore-generate-btn" onclick="generateRestoredImageFromEditor('${editorId}')">
+                                    🖼️ 生成图片
+                                </button>
+                                <button class="nai-btn nai-view-prompt-btn" onclick="togglePromptEditor('${editorId}')">
+                                    📝 查看/编辑提示词
+                                </button>
+                            </div>
+                            <div class="nai-prompt-editor-container" id="${editorId}" style="display: none;">
+                                <div class="nai-prompt-editor-header">
+                                    <span>✏️ 编辑提示词</span>
+                                    <button class="nai-btn nai-btn-small" onclick="togglePromptEditor('${editorId}')">收起</button>
+                                </div>
+                                <textarea class="nai-prompt-textarea" id="${editorId}-textarea" rows="4">${imgPrompt}</textarea>
+                                <div class="nai-prompt-editor-footer">
+                                    <span class="nai-prompt-char-count">字符数: ${imgPrompt.length}</span>
+                                    <div class="nai-prompt-editor-buttons">
+                                        <button class="nai-btn nai-btn-reset" onclick="resetPromptEditor('${editorId}', '${imgPrompt.replace(/'/g, "\\'")}')">🔄 重置</button>
+                                        <button class="nai-btn nai-btn-generate" onclick="generateRestoredImageFromEditor('${editorId}')">🎨 生成图片</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="nai-image-prompt-preview">
+                                提示词预览: ${imgPrompt.substring(0, 80)}${imgPrompt.length > 80 ? '...' : ''}
+                            </div>
+                        </div>
+                    `;
+                    // 存储原始提示词
+                    imgContainer.dataset.originalPrompt = imgPrompt;
+                    messageDiv.appendChild(imgContainer);
+                } else {
+                    // 正常生成流程
+                    imgContainer.innerHTML = `
+                        <div class="nai-image-loading">
+                            <div>🎨 正在生成插图...</div>
+                            <div class="nai-image-prompt-preview">${imgPrompt.substring(0, 80)}...</div>
+                        </div>
+                    `;
+                    messageDiv.appendChild(imgContainer);
+                    
+                    // 异步生成图片
+                    (async () => {
+                        try {
+                            console.log('[NovelAI] 🎨 开始生成图片:', imgPrompt.substring(0, 50) + '...');
+                            const imageBase64 = await window.novelAIGenerator.generateImage(imgPrompt);
+                            
+                            // 检查返回值是否已包含 data URL 前缀
+                            const imageSrc = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+                            
+                            imgContainer.innerHTML = `
+                                <div class="nai-generated-image-container">
+                                    <img class="nai-generated-image" src="${imageSrc}" 
+                                         onclick="openNAIImageModal(this.src)" title="点击放大" />
+                                    <div class="nai-image-actions">
+                                        <button class="nai-btn" onclick="this.parentElement.nextElementSibling.style.display = this.parentElement.nextElementSibling.style.display === 'none' ? 'block' : 'none'">📝 提示词</button>
+                                        <button class="nai-btn" onclick="regenerateNAIImage(this, '${imgPrompt.replace(/'/g, "\\'")}')">🔄 重新生成</button>
+                                    </div>
+                                    <div class="nai-image-prompt-hidden" style="display:none;"><code>${imgPrompt}</code></div>
+                                </div>
+                            `;
+                            console.log('[NovelAI] ✅ 图片生成成功');
+                        } catch (error) {
+                            console.error('[NovelAI] ❌ 图片生成失败:', error);
+                            imgContainer.innerHTML = `
+                                <div class="nai-image-error">
+                                    <strong>❌ 图片生成失败</strong>
+                                    <div>${error.message}</div>
+                                    <button class="nai-btn" onclick="regenerateNAIImage(this, '${imgPrompt.replace(/'/g, "\\'")}')">🔄 重试</button>
+                                </div>
+                            `;
+                        }
+                    })();
+                }
+            }
 
             // 添加选项
             if (options && options.length > 0) {
@@ -318,9 +454,43 @@ async function sendUserInput() {
                                 historyDiv.scrollTop = historyDiv.scrollHeight;
                                 
                                 try {
+                                    // 🎭 用户输入分析（如果启用）
+                                    let optionEnhancement = '';
+                                    if (window.userProfileAnalyzer && window.userProfileAnalyzer.isEnabled()) {
+                                        try {
+                                            const loadingEl = document.getElementById('loading-message');
+                                            if (loadingEl) {
+                                                loadingEl.innerHTML = '<div class="message-content"><span class="loading"></span> 正在分析用户意图...</div>';
+                                            }
+                                            
+                                            const gameContext = {
+                                                currentLocation: gameState.variables.location || '未知',
+                                                characterName: gameState.variables.name || '未知',
+                                                realm: gameState.variables.realm || '凡人'
+                                            };
+                                            
+                                            const analysisResult = await window.userProfileAnalyzer.analyze(optionText, gameContext);
+                                            
+                                            if (analysisResult) {
+                                                optionEnhancement = window.userProfileAnalyzer.getEnhancedPrompt(analysisResult);
+                                            }
+                                            
+                                            if (loadingEl) {
+                                                loadingEl.innerHTML = '<div class="message-content"><span class="loading"></span> AI思考中...</div>';
+                                            }
+                                        } catch (analysisErr) {
+                                            console.warn('[🎭用户画像] 选项分析失败:', analysisErr);
+                                        }
+                                    }
+                                    
                                     // 调用AI
                                     if (typeof callAI === 'function') {
-                                        const response = await callAI(option, false, option);
+                                        let enhancedOption = optionText;
+                                        if (optionEnhancement) {
+                                            enhancedOption = optionEnhancement + '\n\n---\n\n用户选择：' + optionText;
+                                        }
+                                        
+                                        const response = await callAI(enhancedOption, false, optionText);
                                         
                                         // 移除加载提示
                                         const loading = document.getElementById('loading-message');
@@ -528,3 +698,244 @@ async function sendUserInput() {
             historyDiv.appendChild(messageDiv);
             historyDiv.scrollTop = historyDiv.scrollHeight;
         }
+
+        // 🎨 切换提示词编辑器显示/隐藏
+        window.togglePromptEditor = function(editorId) {
+            const editor = document.getElementById(editorId);
+            if (editor) {
+                const isHidden = editor.style.display === 'none';
+                editor.style.display = isHidden ? 'block' : 'none';
+                
+                // 更新字符计数
+                if (isHidden) {
+                    const textarea = document.getElementById(editorId + '-textarea');
+                    if (textarea) {
+                        updatePromptCharCount(editorId, textarea.value.length);
+                        // 添加输入监听
+                        textarea.oninput = () => updatePromptCharCount(editorId, textarea.value.length);
+                    }
+                }
+            }
+        };
+
+        // 🎨 更新字符计数
+        window.updatePromptCharCount = function(editorId, count) {
+            const editor = document.getElementById(editorId);
+            if (editor) {
+                const charCount = editor.querySelector('.nai-prompt-char-count');
+                if (charCount) {
+                    charCount.textContent = `字符数: ${count}`;
+                }
+            }
+        };
+
+        // 🎨 重置提示词编辑器
+        window.resetPromptEditor = function(editorId, originalPrompt) {
+            const textarea = document.getElementById(editorId + '-textarea');
+            if (textarea) {
+                textarea.value = originalPrompt;
+                updatePromptCharCount(editorId, originalPrompt.length);
+            }
+        };
+
+        // 🎨 从编辑器获取提示词并生成图片
+        window.generateRestoredImageFromEditor = async function(editorId) {
+            const textarea = document.getElementById(editorId + '-textarea');
+            const container = document.querySelector(`[data-editor-id="${editorId}"]`)?.closest('.nai-image-container');
+            
+            if (!textarea || !container) {
+                console.error('[NovelAI] 找不到编辑器或容器');
+                return;
+            }
+            
+            const imgPrompt = textarea.value.trim();
+            if (!imgPrompt) {
+                alert('提示词不能为空！');
+                return;
+            }
+            
+            // 显示加载状态
+            container.innerHTML = `
+                <div class="nai-image-loading">
+                    <div>🎨 正在生成插图...</div>
+                    <div class="nai-image-prompt-preview">${imgPrompt.substring(0, 80)}...</div>
+                </div>
+            `;
+            
+            try {
+                console.log('[NovelAI] 🎨 开始生成图片:', imgPrompt.substring(0, 50) + '...');
+                const imageBase64 = await window.novelAIGenerator.generateImage(imgPrompt);
+                
+                // 检查返回值是否已包含 data URL 前缀
+                const imageSrc = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+                const escapedPrompt = imgPrompt.replace(/'/g, "\\'").replace(/\n/g, '\\n');
+                
+                container.innerHTML = `
+                    <div class="nai-generated-image-container">
+                        <img class="nai-generated-image" src="${imageSrc}" 
+                             onclick="openNAIImageModal(this.src)" title="点击放大" />
+                        <div class="nai-image-actions">
+                            <button class="nai-btn" onclick="toggleGeneratedPromptView(this)">📝 查看提示词</button>
+                            <button class="nai-btn" onclick="editAndRegenerateImage(this)">✏️ 编辑并重新生成</button>
+                        </div>
+                        <div class="nai-image-prompt-hidden" style="display:none;">
+                            <div class="nai-prompt-view-header">当前提示词：</div>
+                            <code>${imgPrompt}</code>
+                        </div>
+                        <div class="nai-image-edit-panel" style="display:none;">
+                            <textarea class="nai-prompt-textarea" rows="4">${imgPrompt}</textarea>
+                            <div class="nai-prompt-editor-footer">
+                                <button class="nai-btn nai-btn-cancel" onclick="cancelEditPrompt(this)">取消</button>
+                                <button class="nai-btn nai-btn-generate" onclick="regenerateWithEditedPrompt(this)">🎨 重新生成</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                console.log('[NovelAI] ✅ 图片生成成功');
+            } catch (error) {
+                console.error('[NovelAI] ❌ 图片生成失败:', error);
+                // 恢复编辑界面
+                const newEditorId = 'nai-editor-' + Date.now();
+                container.innerHTML = `
+                    <div class="nai-image-error">
+                        <strong>❌ 图片生成失败</strong>
+                        <div>${error.message}</div>
+                    </div>
+                    <div class="nai-image-restore-placeholder" data-editor-id="${newEditorId}">
+                        <div class="nai-restore-actions">
+                            <button class="nai-btn nai-restore-generate-btn" onclick="generateRestoredImageFromEditor('${newEditorId}')">
+                                🖼️ 重试生成
+                            </button>
+                            <button class="nai-btn nai-view-prompt-btn" onclick="togglePromptEditor('${newEditorId}')">
+                                📝 编辑提示词
+                            </button>
+                        </div>
+                        <div class="nai-prompt-editor-container" id="${newEditorId}" style="display: block;">
+                            <textarea class="nai-prompt-textarea" id="${newEditorId}-textarea" rows="4">${imgPrompt}</textarea>
+                            <div class="nai-prompt-editor-footer">
+                                <span class="nai-prompt-char-count">字符数: ${imgPrompt.length}</span>
+                                <button class="nai-btn nai-btn-generate" onclick="generateRestoredImageFromEditor('${newEditorId}')">🎨 重试</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        // 🎨 切换已生成图片的提示词显示
+        window.toggleGeneratedPromptView = function(btn) {
+            const container = btn.closest('.nai-generated-image-container');
+            if (container) {
+                const promptHidden = container.querySelector('.nai-image-prompt-hidden');
+                const editPanel = container.querySelector('.nai-image-edit-panel');
+                if (promptHidden) {
+                    // 隐藏编辑面板
+                    if (editPanel) editPanel.style.display = 'none';
+                    // 切换显示
+                    promptHidden.style.display = promptHidden.style.display === 'none' ? 'block' : 'none';
+                }
+            }
+        };
+
+        // 🎨 编辑并重新生成图片
+        window.editAndRegenerateImage = function(btn) {
+            const container = btn.closest('.nai-generated-image-container');
+            if (container) {
+                const promptHidden = container.querySelector('.nai-image-prompt-hidden');
+                const editPanel = container.querySelector('.nai-image-edit-panel');
+                if (promptHidden && editPanel) {
+                    // 隐藏提示词显示
+                    promptHidden.style.display = 'none';
+                    // 显示编辑面板
+                    editPanel.style.display = 'block';
+                }
+            }
+        };
+
+        // 🎨 取消编辑提示词
+        window.cancelEditPrompt = function(btn) {
+            const container = btn.closest('.nai-generated-image-container');
+            if (container) {
+                const editPanel = container.querySelector('.nai-image-edit-panel');
+                if (editPanel) {
+                    editPanel.style.display = 'none';
+                }
+            }
+        };
+
+        // 🎨 用编辑后的提示词重新生成图片
+        window.regenerateWithEditedPrompt = async function(btn) {
+            const container = btn.closest('.nai-generated-image-container');
+            const imgContainer = btn.closest('.nai-image-container');
+            if (!container || !imgContainer) return;
+            
+            const textarea = container.querySelector('.nai-image-edit-panel textarea');
+            if (!textarea) return;
+            
+            const imgPrompt = textarea.value.trim();
+            if (!imgPrompt) {
+                alert('提示词不能为空！');
+                return;
+            }
+            
+            // 显示加载状态
+            imgContainer.innerHTML = `
+                <div class="nai-image-loading">
+                    <div>🎨 正在重新生成插图...</div>
+                    <div class="nai-image-prompt-preview">${imgPrompt.substring(0, 80)}...</div>
+                </div>
+            `;
+            
+            try {
+                console.log('[NovelAI] 🎨 开始重新生成图片:', imgPrompt.substring(0, 50) + '...');
+                const imageBase64 = await window.novelAIGenerator.generateImage(imgPrompt);
+                
+                const imageSrc = imageBase64.startsWith('data:') ? imageBase64 : `data:image/png;base64,${imageBase64}`;
+                
+                imgContainer.innerHTML = `
+                    <div class="nai-generated-image-container">
+                        <img class="nai-generated-image" src="${imageSrc}" 
+                             onclick="openNAIImageModal(this.src)" title="点击放大" />
+                        <div class="nai-image-actions">
+                            <button class="nai-btn" onclick="toggleGeneratedPromptView(this)">📝 查看提示词</button>
+                            <button class="nai-btn" onclick="editAndRegenerateImage(this)">✏️ 编辑并重新生成</button>
+                        </div>
+                        <div class="nai-image-prompt-hidden" style="display:none;">
+                            <div class="nai-prompt-view-header">当前提示词：</div>
+                            <code>${imgPrompt}</code>
+                        </div>
+                        <div class="nai-image-edit-panel" style="display:none;">
+                            <textarea class="nai-prompt-textarea" rows="4">${imgPrompt}</textarea>
+                            <div class="nai-prompt-editor-footer">
+                                <button class="nai-btn nai-btn-cancel" onclick="cancelEditPrompt(this)">取消</button>
+                                <button class="nai-btn nai-btn-generate" onclick="regenerateWithEditedPrompt(this)">🎨 重新生成</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                console.log('[NovelAI] ✅ 重新生成成功');
+            } catch (error) {
+                console.error('[NovelAI] ❌ 重新生成失败:', error);
+                const newEditorId = 'nai-editor-' + Date.now();
+                imgContainer.innerHTML = `
+                    <div class="nai-image-error">
+                        <strong>❌ 图片生成失败</strong>
+                        <div>${error.message}</div>
+                    </div>
+                    <div class="nai-image-restore-placeholder" data-editor-id="${newEditorId}">
+                        <div class="nai-restore-actions">
+                            <button class="nai-btn nai-restore-generate-btn" onclick="generateRestoredImageFromEditor('${newEditorId}')">
+                                🖼️ 重试
+                            </button>
+                        </div>
+                        <div class="nai-prompt-editor-container" id="${newEditorId}" style="display: block;">
+                            <textarea class="nai-prompt-textarea" id="${newEditorId}-textarea" rows="4">${imgPrompt}</textarea>
+                            <div class="nai-prompt-editor-footer">
+                                <span class="nai-prompt-char-count">字符数: ${imgPrompt.length}</span>
+                                <button class="nai-btn nai-btn-generate" onclick="generateRestoredImageFromEditor('${newEditorId}')">🎨 重试</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        };

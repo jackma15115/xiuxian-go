@@ -479,6 +479,12 @@ function loadConfig() {
             }
         }
     }
+    
+    // 🎭 加载用户画像设置
+    if (window.userProfileAnalyzer && typeof window.userProfileAnalyzer.loadSettingsToUI === 'function') {
+        window.userProfileAnalyzer.loadSettingsToUI();
+        console.log('[用户画像] ✅ 已加载用户画像设置到UI');
+    }
 }
 
 // 获取完整端点
@@ -523,8 +529,10 @@ async function fetchModels() {
     const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
     if (sCfg && sCfg.serverMode && sCfg.hasMain && (!baseEndpoint || !apiKey)) {
         const btn = document.getElementById('fetchModelsBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        }
         try {
             const res = await fetch('/api/models');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -534,16 +542,20 @@ async function fetchModels() {
                 apiConfig.availableModels = models;
                 displayModels(models);
                 updateConnectionStatus(true);
-                document.getElementById('modelSelectGroup').style.display = 'flex';
-                document.getElementById('saveConnectionBtn').style.display = 'block';
-                btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
-                btn.disabled = false;
+                const msgGroup = document.getElementById('modelSelectGroup');
+                const saveBtn = document.getElementById('saveConnectionBtn');
+                if (msgGroup) msgGroup.style.display = 'flex';
+                if (saveBtn) saveBtn.style.display = 'block';
+                if (btn) {
+                    btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
+                    btn.disabled = false;
+                }
                 return;
             }
         } catch (err) {
             console.warn('从服务端获取模型列表失败:', err);
         }
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
     }
 
     if (!baseEndpoint || !apiKey) {
@@ -697,8 +709,10 @@ async function fetchExtraModels() {
     const sCfg = window.serverConfig || (typeof checkServerConfig === 'function' ? await checkServerConfig() : null);
     if (sCfg && sCfg.serverMode && (sCfg.hasExtra || sCfg.hasMain) && (!baseEndpoint || !apiKey)) {
         const btn = document.getElementById('fetchExtraModelsBtn');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading"></span> 连接服务端中...';
+        }
         try {
             const res = await fetch('/api/models?type=extra');
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -708,16 +722,20 @@ async function fetchExtraModels() {
                 extraApiConfig.availableModels = models;
                 displayExtraModels(models);
                 updateExtraConnectionStatus(true);
-                document.getElementById('extraModelSelectGroup').style.display = 'block';
-                document.getElementById('saveExtraConnectionBtn').style.display = 'block';
-                btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
-                btn.disabled = false;
+                const extraGroup = document.getElementById('extraModelSelectGroup');
+                const extraSaveBtn = document.getElementById('saveExtraConnectionBtn');
+                if (extraGroup) extraGroup.style.display = 'block';
+                if (extraSaveBtn) extraSaveBtn.style.display = 'block';
+                if (btn) {
+                    btn.innerHTML = '<span class="status-indicator status-connected"></span> 服务端连接成功';
+                    btn.disabled = false;
+                }
                 return;
             }
         } catch (err) {
             console.warn('从服务端获取额外模型列表失败:', err);
         }
-        btn.disabled = false;
+        if (btn) btn.disabled = false;
     }
 
     if (!baseEndpoint || !apiKey) {
@@ -1205,6 +1223,9 @@ async function viewContext() {
 
     // 构建即将发送的消息（使用空字符串作为用户消息占位符）
     const messages = await buildAIMessages('[即将发送的用户输入或选项]');
+    
+    // 保存原始 messages 用于纯净导出
+    window._lastContextMessages = messages;
     const enableVectorRetrieval = document.getElementById('enableVectorRetrieval')?.checked || false;
 
     // 格式化消息
@@ -1362,9 +1383,9 @@ async function viewContext() {
             max-height: 60vh;
             overflow-y: auto;
         "></pre>
-        <div style="margin-top: 15px; text-align: center;">
+        <div style="margin-top: 15px; text-align: center; display: flex; gap: 10px; justify-content: center;">
             <button onclick="
-                const text = this.previousElementSibling.textContent;
+                const text = document.getElementById('contextPreviewPre').textContent;
                 navigator.clipboard.writeText(text).then(() => alert('已复制到剪贴板！'));
             " style="
                 padding: 10px 20px;
@@ -1375,6 +1396,15 @@ async function viewContext() {
                 cursor: pointer;
                 font-size: 14px;
             ">📋 复制到剪贴板</button>
+            <button onclick="exportContextToTxt()" style="
+                padding: 10px 20px;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 14px;
+            ">💾 导出为TXT</button>
         </div>
     `;
     // 使用 textContent 避免标签被HTML解析，保证<format>与<context>可见
@@ -1392,6 +1422,46 @@ async function viewContext() {
     };
 }
 
+// 导出上下文为TXT文件（纯净版，只包含实际发送内容）
+function exportContextToTxt() {
+    const messages = window._lastContextMessages;
+    if (!messages || messages.length === 0) {
+        alert('未找到上下文内容');
+        return;
+    }
+    
+    // 生成纯净内容：只包含 role 和 content
+    let text = '';
+    messages.forEach((msg, index) => {
+        const roleLabel = msg.role === 'system' ? '[SYSTEM]' :
+                          msg.role === 'user' ? '[USER]' : '[ASSISTANT]';
+        text += `=== 消息 ${index + 1} ${roleLabel} ===\n`;
+        text += msg.content + '\n\n';
+    });
+    
+    const filename = 'ai_context_' + new Date().toISOString().slice(0,19).replace(/[T:]/g, '-') + '.txt';
+    
+    try {
+        // 方法1: 使用 data URI
+        const dataUri = 'data:text/plain;charset=utf-8,' + encodeURIComponent(text);
+        const a = document.createElement('a');
+        a.href = dataUri;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    } catch (e) {
+        console.error('导出失败:', e);
+        // 备用方案: 复制到剪贴板
+        navigator.clipboard.writeText(text).then(() => {
+            alert('导出失败，已复制到剪贴板，请手动粘贴保存');
+        }).catch(() => {
+            alert('导出失败: ' + e.message);
+        });
+    }
+}
+
 // 恢复对话历史显示
 function restoreConversationHistory() {
     const historyDiv = document.getElementById('gameHistory');
@@ -1407,9 +1477,10 @@ function restoreConversationHistory() {
         if (msg.role === 'assistant') {
             // AI消息，需要从后续消息中获取选项（如果有）
             // 由于我们只保存了剧情，选项无法恢复，所以只显示剧情
-            displayAIMessage(msg.content, []);
+            // 🎨 传入 imgPrompt 和 isRestore=true，恢复时只显示"点击生成图片"按钮
+            displayAIMessage(msg.content, [], null, msg.imgPrompt || null, true);
             aiCount++;
-            console.log(`[恢复对话] ✅ AI消息 ${i+1}: ${msg.content.substring(0, 30)}...`);
+            console.log(`[恢复对话] ✅ AI消息 ${i+1}: ${msg.content.substring(0, 30)}...`, msg.imgPrompt ? '(有图片提示词)' : '');
         } else if (msg.role === 'user') {
             // 用户消息 - 🔧 强制渲染，跳过调试模式检查
             displayUserMessage(msg.content, true);

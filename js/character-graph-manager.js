@@ -153,8 +153,9 @@ class CharacterGraphManager {
     /**
      * 添加或更新人物信息
      * @param {Object} relationship - 从AI响应的relationships中提取的人物信息
+     * @param {number} turnIndex - 🆕 当前轮次索引（用于回滚时删除）
      */
-    async addOrUpdateCharacter(relationship) {
+    async addOrUpdateCharacter(relationship, turnIndex = null) {
         if (!this.isInitialized) {
             await this.init();
         }
@@ -169,6 +170,11 @@ class CharacterGraphManager {
         // 检查是否已存在
         const existing = this.characters.get(name);
         
+        // 🆕 计算当前轮次索引（如果没有传入）
+        if (turnIndex === null && window.gameState) {
+            turnIndex = Math.floor((window.gameState.conversationHistory?.length || 0) / 2);
+        }
+        
         // 准备人物数据（不包含vector，避免浪费存储和发送给AI）
         const characterData = {
             name,
@@ -176,6 +182,7 @@ class CharacterGraphManager {
             appearance: appearance || existing?.appearance || '未知',
             ...otherData,
             addedAt: existing?.addedAt || Date.now(),
+            addedAtTurn: existing?.addedAtTurn ?? turnIndex, // 🆕 记录首次添加时的轮次
             updatedAt: Date.now(),
             lastMatchedAt: existing?.lastMatchedAt || null,
             matchCount: existing?.matchCount || 0
@@ -627,6 +634,41 @@ class CharacterGraphManager {
                 reject(request.error);
             };
         });
+    }
+
+    /**
+     * 🆕 根据轮次范围删除人物（用于消息回滚）
+     * @param {number} turnStart - 起始轮次（包含）
+     * @param {number} turnEnd - 结束轮次（包含）
+     * @returns {Array} 被删除的人物名称列表
+     */
+    async deleteCharactersByTurnRange(turnStart, turnEnd) {
+        if (!this.isInitialized) {
+            await this.init();
+        }
+
+        const deletedNames = [];
+        
+        // 找出在指定轮次范围内首次添加的人物
+        for (const [name, char] of this.characters.entries()) {
+            const addedAtTurn = char.addedAtTurn;
+            
+            // 只删除在指定轮次范围内首次添加的人物
+            if (addedAtTurn !== undefined && addedAtTurn >= turnStart && addedAtTurn <= turnEnd) {
+                try {
+                    await this.deleteCharacter(name);
+                    deletedNames.push(name);
+                } catch (error) {
+                    console.error(`[人物图谱] 回滚删除失败: ${name}`, error);
+                }
+            }
+        }
+
+        if (deletedNames.length > 0) {
+            console.log(`[人物图谱] 🔄 回滚删除了 ${deletedNames.length} 个人物（轮次${turnStart}-${turnEnd}）:`, deletedNames);
+        }
+
+        return deletedNames;
     }
 
     /**

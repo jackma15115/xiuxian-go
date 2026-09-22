@@ -200,8 +200,8 @@ function testLayerRetrieval(layerIndex) {
 }
 
 // 重建History矩阵
-function rebuildHistoryMatrix() {
-    if (!confirm('⚠️ 确定要重建History矩阵吗？\n\n这将清空现有矩阵并重新从向量库构建。')) {
+async function rebuildHistoryMatrix() {
+    if (!confirm('⚠️ 确定要重建History矩阵吗？\n\n这将清空现有矩阵并重新从向量库构建。\n如果向量库为空，将自动从history记录构建。')) {
         return;
     }
 
@@ -209,22 +209,104 @@ function rebuildHistoryMatrix() {
         // 清空现有矩阵
         window.matrixManager.historyMatrix.clear();
         
-        // 重新初始化
-        window.matrixManager.initializeHistoryMatrix().then(data => {
-            if (data) {
-                alert(`✅ History矩阵重建成功！\n\n重建了 ${data.stats.totalLayers} 层矩阵\n包含 ${data.stats.totalVectors} 个向量`);
+        // 🔧 修复：如果historyEmbeddings为空，先从gameState.variables.history构建
+        if (window.contextVectorManager.historyEmbeddings.length === 0) {
+            const history = window.gameState?.variables?.history;
+            if (history && Array.isArray(history) && history.length > 0) {
+                console.log(`[History矩阵] 🔄 向量库为空，从history记录构建（${history.length}条）...`);
                 
-                // 刷新当前显示
-                document.getElementById('historyMatrixModal')?.remove();
-                viewHistoryMatrix();
+                // 显示进度提示
+                const progressMsg = document.createElement('div');
+                progressMsg.id = 'rebuildProgress';
+                progressMsg.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 30px;
+                    border-radius: 15px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+                    z-index: 10002;
+                    text-align: center;
+                `;
+                progressMsg.innerHTML = `
+                    <div style="color: #28a745; font-size: 20px; font-weight: bold; margin-bottom: 15px;">
+                        🔄 正在重建History向量库...
+                    </div>
+                    <div style="color: #666; font-size: 14px;">
+                        请稍候，正在处理 <span id="rebuildCurrentItem">0</span>/${history.length} 条记录
+                    </div>
+                `;
+                document.body.appendChild(progressMsg);
+                
+                // 清空并重建historyEmbeddings
+                window.contextVectorManager.historyEmbeddings = [];
+                
+                for (let i = 0; i < history.length; i++) {
+                    const historyText = history[i];
+                    if (!historyText || typeof historyText !== 'string') continue;
+                    
+                    // 更新进度
+                    const progressSpan = document.getElementById('rebuildCurrentItem');
+                    if (progressSpan) progressSpan.textContent = i + 1;
+                    
+                    // 生成向量
+                    let vector;
+                    try {
+                        if (window.contextVectorManager.embeddingMethod === 'keyword') {
+                            vector = window.contextVectorManager.createKeywordVector(historyText);
+                        } else {
+                            vector = window.contextVectorManager.createKeywordVector(historyText);
+                        }
+                    } catch (e) {
+                        vector = window.contextVectorManager.createKeywordVector(historyText);
+                    }
+                    
+                    // 添加到historyEmbeddings
+                    window.contextVectorManager.historyEmbeddings.push({
+                        content: historyText,
+                        vector: vector,
+                        turnIndex: i + 1,
+                        historyIndex: i,
+                        timestamp: Date.now()
+                    });
+                    
+                    // 让UI有机会更新
+                    if (i % 10 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                }
+                
+                // 移除进度提示
+                progressMsg.remove();
+                
+                console.log(`[History矩阵] ✅ 已从history记录构建 ${window.contextVectorManager.historyEmbeddings.length} 条向量`);
+                
+                // 保存到IndexedDB
+                await window.contextVectorManager.saveToIndexedDB();
             } else {
-                alert('⚠️ 矩阵重建失败：向量库为空');
+                alert('⚠️ 矩阵重建失败：向量库为空且无history记录可用');
+                return;
             }
-        }).catch(error => {
-            alert(`❌ 矩阵重建失败：${error.message}`);
-        });
+        }
+        
+        // 重新初始化矩阵
+        const data = await window.matrixManager.initializeHistoryMatrix();
+        if (data) {
+            alert(`✅ History矩阵重建成功！\n\n重建了 ${data.stats.totalLayers} 层矩阵\n包含 ${data.stats.totalVectors} 个向量`);
+            
+            // 刷新当前显示
+            document.getElementById('historyMatrixModal')?.remove();
+            viewHistoryMatrix();
+        } else {
+            alert('⚠️ 矩阵重建失败：无法初始化矩阵');
+        }
     } catch (error) {
+        console.error('[History矩阵] 重建失败:', error);
         alert(`❌ 矩阵重建失败：${error.message}`);
+        // 移除可能残留的进度提示
+        document.getElementById('rebuildProgress')?.remove();
     }
 }
 

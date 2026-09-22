@@ -1798,7 +1798,7 @@
                 console.log('[完整备份] 获取到', allSaves.length, '个存档');
                 
                 const backupData = {
-                    version: '2.0',
+                    version: '2.1',
                     type: 'complete_backup',
                     timestamp: Date.now(),
                     exportDate: new Date().toLocaleString('zh-CN'),
@@ -1828,7 +1828,20 @@
                     
                     // 6. 对话向量库
                     conversationVectors: window.contextVectorManager ? 
-                        window.contextVectorManager.exportConversationVectors() : null
+                        window.contextVectorManager.exportConversationVectors() : null,
+                    
+                    // 7. NovelAI 生图配置
+                    novelAIConfig: {
+                        apiKey: localStorage.getItem('novelai_api_key') || '',
+                        enabled: localStorage.getItem('novelai_enabled') === 'true',
+                        imagePromptTemplate: localStorage.getItem('novelai_image_prompt_template') || '',
+                        positivePromptPrefix: localStorage.getItem('novelai_positive_prompt_prefix') || '',
+                        imageConfig: JSON.parse(localStorage.getItem('novelai_image_config') || '{}')
+                    },
+                    
+                    // 8. 人物图谱数据和配置
+                    characterGraph: window.characterGraphManager ? 
+                        window.characterGraphManager.exportData() : null
                 };
                 
                 // 生成文件名
@@ -1854,7 +1867,9 @@
                     savesCount: backupData.allSaves.length,
                     conversationCount: backupData.gameState.conversationHistory.length,
                     knowledgeCount: backupData.knowledgeBase?.knowledge?.length || 0,
-                    vectorCount: backupData.conversationVectors?.embeddings?.length || 0
+                    vectorCount: backupData.conversationVectors?.embeddings?.length || 0,
+                    novelAIEnabled: backupData.novelAIConfig?.enabled || false,
+                    characterGraphCount: backupData.characterGraph?.characters?.length || 0
                 };
                 
                 alert(`✅ 完整备份导出成功！\n\n📦 备份内容：\n` +
@@ -1863,7 +1878,9 @@
                       `- 所有存档：${stats.savesCount} 个\n` +
                       `- 当前对话：${stats.conversationCount} 条\n` +
                       `- 静态知识库：${stats.knowledgeCount} 条\n` +
-                      `- 对话向量：${stats.vectorCount} 条\n\n` +
+                      `- 对话向量：${stats.vectorCount} 条\n` +
+                      `- NovelAI生图：${stats.novelAIEnabled ? '✓ 已启用' : '✗ 未启用'}\n` +
+                      `- 人物图谱：${stats.characterGraphCount} 个人物\n\n` +
                       `💾 文件名：${filename}\n\n` +
                       `💡 建议保存到安全的位置！`);
                 
@@ -1954,7 +1971,9 @@
                         allSaves: false,
                         gameState: false,
                         knowledgeBase: false,
-                        conversationVectors: false
+                        conversationVectors: false,
+                        novelAIConfig: false,
+                        characterGraph: false
                     };
                     
                     // 1. 导入API配置和游戏设置
@@ -2040,6 +2059,45 @@
                         console.log('[完整备份] ✓ 对话向量库已恢复:', result.count, '条');
                     }
                     
+                    // 7. 导入 NovelAI 生图配置
+                    if (backupData.novelAIConfig) {
+                        updateProgress('正在恢复 NovelAI 生图配置...');
+                        
+                        // 恢复各项配置到 localStorage
+                        if (backupData.novelAIConfig.apiKey) {
+                            localStorage.setItem('novelai_api_key', backupData.novelAIConfig.apiKey);
+                        }
+                        localStorage.setItem('novelai_enabled', backupData.novelAIConfig.enabled ? 'true' : 'false');
+                        if (backupData.novelAIConfig.imagePromptTemplate) {
+                            localStorage.setItem('novelai_image_prompt_template', backupData.novelAIConfig.imagePromptTemplate);
+                        }
+                        if (backupData.novelAIConfig.positivePromptPrefix !== undefined) {
+                            localStorage.setItem('novelai_positive_prompt_prefix', backupData.novelAIConfig.positivePromptPrefix);
+                        }
+                        if (backupData.novelAIConfig.imageConfig && Object.keys(backupData.novelAIConfig.imageConfig).length > 0) {
+                            localStorage.setItem('novelai_image_config', JSON.stringify(backupData.novelAIConfig.imageConfig));
+                        }
+                        
+                        // 如果 novelAIGenerator 实例存在，重新加载配置
+                        if (window.novelAIGenerator && typeof window.novelAIGenerator.loadConfig === 'function') {
+                            window.novelAIGenerator.loadConfig();
+                        }
+                        
+                        importedItems.novelAIConfig = true;
+                        console.log('[完整备份] ✓ NovelAI 生图配置已恢复');
+                    }
+                    
+                    // 8. 导入人物图谱数据
+                    if (backupData.characterGraph && window.characterGraphManager) {
+                        updateProgress('正在恢复人物图谱...');
+                        
+                        await window.characterGraphManager.importData(backupData.characterGraph);
+                        
+                        importedItems.characterGraph = true;
+                        const charCount = backupData.characterGraph.characters?.length || 0;
+                        console.log('[完整备份] ✓ 人物图谱已恢复:', charCount, '个人物');
+                    }
+                    
                     loadingMsg.remove();
                     
                     // 显示导入结果
@@ -2047,7 +2105,9 @@
                         savesCount: backupData.allSaves?.length || 0,
                         conversationCount: backupData.gameState?.conversationHistory?.length || 0,
                         knowledgeCount: backupData.knowledgeBase?.knowledge?.length || 0,
-                        vectorCount: backupData.conversationVectors?.embeddings?.length || 0
+                        vectorCount: backupData.conversationVectors?.embeddings?.length || 0,
+                        novelAIEnabled: backupData.novelAIConfig?.enabled || false,
+                        characterGraphCount: backupData.characterGraph?.characters?.length || 0
                     };
                     
                     alert(`✅ 完整备份导入成功！\n\n` +
@@ -2057,7 +2117,9 @@
                           `${importedItems.allSaves ? '✓' : '✗'} 所有存档（${stats.savesCount} 个）\n` +
                           `${importedItems.gameState ? '✓' : '✗'} 当前游戏状态（${stats.conversationCount} 条对话）\n` +
                           `${importedItems.knowledgeBase ? '✓' : '✗'} 静态知识库（${stats.knowledgeCount} 条）\n` +
-                          `${importedItems.conversationVectors ? '✓' : '✗'} 对话向量库（${stats.vectorCount} 条）\n\n` +
+                          `${importedItems.conversationVectors ? '✓' : '✗'} 对话向量库（${stats.vectorCount} 条）\n` +
+                          `${importedItems.novelAIConfig ? '✓' : '✗'} NovelAI生图配置\n` +
+                          `${importedItems.characterGraph ? '✓' : '✗'} 人物图谱（${stats.characterGraphCount} 个人物）\n\n` +
                           `💡 所有存档已保存到IndexedDB，可以通过"加载存档"查看\n\n` +
                           `🎉 建议现在刷新页面以确保所有设置生效`);
                     

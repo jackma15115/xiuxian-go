@@ -6,8 +6,14 @@ function buildEnhancedPrompt(userMessage, options = {}) {
     const saved = localStorage.getItem('gameConfig');
     const config = saved ? JSON.parse(saved) : {};
 
-    // 🆕 明确标识这是用户的要求
-    let enhancedPrompt = `【后续情节】${userMessage}`;
+    // 🎨 如果启用了 NovelAI 文生图，先注入插图提示词模板
+    let novelAIPrompt = '';
+    if (window.novelAIGenerator && window.novelAIGenerator.enabled) {
+        novelAIPrompt = window.novelAIGenerator.getInjectionPrompt();
+    }
+
+    // 🆕 明确标识这是用户的要求（插图提示词在用户输入之前）
+    let enhancedPrompt = novelAIPrompt + `\n\n【后续情节】${userMessage}`;
 
     // 1. 根据机缘值和天谴值添加提示
     if (gameState.variables.karmaFortune >= 80) {

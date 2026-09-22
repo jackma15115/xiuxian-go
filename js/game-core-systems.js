@@ -156,6 +156,151 @@ function getMobileChatHistoryForCharacter(characterName, limit = 50) {
 }
 
 /**
+ * 🃏 获取 ACJT 卡牌系统数据（用于存档）
+ */
+function getACJTDataForSave() {
+    try {
+        const data = {};
+        
+        // 保存卡组（保存完整卡牌数据，包括升级状态）
+        if (typeof CardDeckManager !== 'undefined' && CardDeckManager.deck) {
+            data.deck = CardDeckManager.getDeckData ? CardDeckManager.getDeckData() : CardDeckManager.deck.map(card => ({
+                id: card.id,
+                name: card.name,
+                type: card.type,
+                value: card.value,
+                cost: card.cost,
+                description: card.description,
+                upgraded: card.upgraded || false
+            }));
+        }
+        
+        // 保存玩家状态
+        if (typeof PlayerState !== 'undefined') {
+            data.playerState = {
+                professionId: PlayerState.profession?.id,
+                name: PlayerState.name,
+                hp: PlayerState.hp,
+                maxHp: PlayerState.maxHp,
+                gold: PlayerState.gold,
+                energy: PlayerState.energy,
+                baseArmor: PlayerState.baseArmor,
+                attack: PlayerState.attack,
+                defense: PlayerState.defense,
+                corruption: PlayerState.corruption,
+                relics: PlayerState.relics ? [...PlayerState.relics] : [],
+                floor: PlayerState.floor || 0
+            };
+        }
+        
+        // 保存特殊状态
+        if (typeof SpecialStatusManager !== 'undefined') {
+            data.specialStatuses = { ...SpecialStatusManager.statuses };
+        }
+        
+        // 保存当前层数
+        if (typeof ACJTGame !== 'undefined') {
+            data.currentFloor = ACJTGame.currentFloor;
+            data.isGameStarted = ACJTGame.isGameStarted;
+            
+            // 🔧 保存角色创建数据（包含开局特殊状态、身体属性等）
+            if (ACJTGame.charData) {
+                data.charData = JSON.parse(JSON.stringify(ACJTGame.charData));
+            }
+        }
+        
+        console.log('[存档] ACJT 数据已收集:', Object.keys(data));
+        return data;
+    } catch (e) {
+        console.warn('[存档] 获取 ACJT 数据失败:', e);
+        return null;
+    }
+}
+
+/**
+ * 🃏 恢复 ACJT 卡牌系统数据（从存档加载）
+ */
+function restoreACJTData(data) {
+    if (!data) return;
+    
+    try {
+        // 恢复卡组
+        if (data.deck && typeof CardDeckManager !== 'undefined') {
+            // 支持新格式（完整卡牌对象）和旧格式（只有ID）
+            if (data.deck.length > 0 && typeof data.deck[0] === 'object') {
+                // 新格式：完整卡牌对象
+                CardDeckManager.deck = data.deck.filter(c => c && c.id);
+            } else if (typeof CardLibrary !== 'undefined') {
+                // 旧格式：只有ID，从 CardLibrary 查找
+                CardDeckManager.deck = data.deck.map(cardId => {
+                    const card = CardLibrary.find(c => c.id === cardId);
+                    return card ? { ...card } : null;
+                }).filter(c => c);
+            }
+            
+            // 更新显示
+            if (CardDeckManager.renderDeck) {
+                CardDeckManager.renderDeck();
+            }
+            console.log('[存档] 卡组已恢复:', CardDeckManager.deck.length, '张卡');
+        }
+        
+        // 恢复玩家状态
+        if (data.playerState && typeof PlayerState !== 'undefined') {
+            const ps = data.playerState;
+            if (ps.professionId && typeof ProfessionConfig !== 'undefined') {
+                PlayerState.profession = ProfessionConfig[ps.professionId];
+            }
+            PlayerState.name = ps.name || '旅行者';
+            PlayerState.hp = ps.hp || 70;
+            PlayerState.maxHp = ps.maxHp || 70;
+            PlayerState.gold = ps.gold || 100;
+            PlayerState.energy = ps.energy || 3;
+            PlayerState.baseArmor = ps.baseArmor || 0;
+            PlayerState.attack = ps.attack || 0;
+            PlayerState.defense = ps.defense || 0;
+            PlayerState.corruption = ps.corruption || 0;
+            PlayerState.floor = ps.floor || 0;
+            
+            // 恢复圣遗物（relics是ID字符串数组）
+            if (ps.relics) {
+                PlayerState.relics = [...ps.relics];
+            }
+            
+            PlayerState.updateDisplay();
+            console.log('[存档] 玩家状态已恢复');
+        }
+        
+        // 恢复特殊状态
+        if (data.specialStatuses && typeof SpecialStatusManager !== 'undefined') {
+            SpecialStatusManager.statuses = { ...data.specialStatuses };
+            SpecialStatusManager.updateDisplay();
+            console.log('[存档] 特殊状态已恢复');
+        }
+        
+        // 恢复层数和角色创建数据
+        if (typeof ACJTGame !== 'undefined') {
+            if (data.currentFloor !== undefined) {
+                ACJTGame.currentFloor = data.currentFloor;
+            }
+            if (data.isGameStarted !== undefined) {
+                ACJTGame.isGameStarted = data.isGameStarted;
+            }
+            
+            // 🔧 恢复角色创建数据（包含开局特殊状态、身体属性等）
+            if (data.charData) {
+                ACJTGame.charData = JSON.parse(JSON.stringify(data.charData));
+                console.log('[存档] 角色创建数据已恢复:', Object.keys(ACJTGame.charData));
+            }
+        }
+        
+        console.log('[存档] ACJT 数据恢复完成');
+    } catch (e) {
+        console.warn('[存档] 恢复 ACJT 数据失败:', e);
+    }
+}
+
+/**
  * 初始化 IndexedDB
  */
 function initDB() {
@@ -231,7 +376,9 @@ async function saveGameToSlot(saveName, saveData = null) {
             mobileChatData: getMobileChatDataForSave(),
             // 📰 保存手机论坛数据
             mobileForumData: getMobileForumDataForSave(),
-            dynamicWorld: JSON.parse(JSON.stringify(gameState.dynamicWorld))
+            dynamicWorld: JSON.parse(JSON.stringify(gameState.dynamicWorld)),
+            // 🃏 保存 ACJT 卡牌系统数据
+            acjtData: getACJTDataForSave()
         };
         const index = store.index('saveName');
         const getRequest = index.get(saveName);
@@ -579,7 +726,9 @@ async function exportCurrentGame() {
         // 📱 导出手机聊天数据
         mobileChatData: getMobileChatDataForSave(),
         // 📰 导出手机论坛数据
-        mobileForumData: getMobileForumDataForSave()
+        mobileForumData: getMobileForumDataForSave(),
+        // 🎭 导出用户画像数据
+        userProfileData: window.userProfileAnalyzer ? window.userProfileAnalyzer.exportProfile() : null
     };
     exportSaveToFile(saveData, `${saveName}.json`);
     
@@ -592,6 +741,8 @@ async function exportCurrentGame() {
     // 📱 统计手机数据
     const chatCount = saveData.mobileChatData?.chatStorage ? Object.keys(saveData.mobileChatData.chatStorage).length : 0;
     const forumPostCount = saveData.mobileForumData?.postsCache ? Object.keys(saveData.mobileForumData.postsCache).length : 0;
+    // 🎭 用户画像
+    const hasUserProfile = saveData.userProfileData ? '已包含' : '无';
     
     alert(`✅ 存档已导出！\n\n包含内容：\n` +
           `• 对话向量：${vectorCount} 条\n` +
@@ -599,7 +750,8 @@ async function exportCurrentGame() {
           `• 矩阵层数：${matrixLayers} 层\n` +
           `• 人物图谱：${characterCount} 人\n` +
           `• 📱 手机聊天：${chatCount} 个对话\n` +
-          `• 📰 论坛帖子：${forumPostCount} 篇`);
+          `• 📰 论坛帖子：${forumPostCount} 篇\n` +
+          `• 🎭 用户画像：${hasUserProfile}`);
 }
 
 function importSaveFromFile() {
@@ -626,6 +778,7 @@ function importSaveFromFile() {
                 // 📱 统计手机数据
                 const chatCount = saveData.mobileChatData?.chatStorage ? Object.keys(saveData.mobileChatData.chatStorage).length : 0;
                 const forumPostCount = saveData.mobileForumData?.postsCache ? Object.keys(saveData.mobileForumData.postsCache).length : 0;
+                const hasUserProfile = saveData.userProfileData ? '已包含' : '无';
                 
                 let confirmMessage = `确定要导入存档"${saveData.saveName || file.name}"吗？\n\n包含内容：\n`;
                 confirmMessage += `• 对话向量：${vectorCount} 条\n`;
@@ -634,6 +787,7 @@ function importSaveFromFile() {
                 confirmMessage += `• 人物图谱：${characterCount} 人\n`;
                 confirmMessage += `• 📱 手机聊天：${chatCount} 个对话\n`;
                 confirmMessage += `• 📰 论坛帖子：${forumPostCount} 篇\n`;
+                confirmMessage += `• 🎭 用户画像：${hasUserProfile}\n`;
                 confirmMessage += `\n⚠️ 当前游戏进度将被覆盖！`;
                 
                 if (!confirm(confirmMessage)) {
@@ -655,7 +809,8 @@ function importSaveFromFile() {
                       `• 矩阵层数：${matrixLayers} 层\n` +
                       `• 人物图谱：${characterCount} 人\n` +
                       `• 📱 手机聊天：${chatCount} 个对话\n` +
-                      `• 📰 论坛帖子：${forumPostCount} 篇\n\n` +
+                      `• 📰 论坛帖子：${forumPostCount} 篇\n` +
+                      `• 🎭 用户画像：${hasUserProfile}\n\n` +
                       `已自动保存到本地数据库`);
             } catch (error) {
                 alert('导入失败：' + error.message);
@@ -1360,6 +1515,20 @@ function confirmDelete() {
         );
     }
     
+    // 🆕 从人物图谱中删除对应轮次添加的人物
+    if (window.characterGraphManager && typeof window.characterGraphManager.deleteCharactersByTurnRange === 'function') {
+        const turnIndexStart = Math.floor(firstSelectedIndex / 2) + 1;
+        const turnIndexEnd = Math.floor((firstSelectedIndex + deleteCount) / 2);
+        
+        window.characterGraphManager.deleteCharactersByTurnRange(turnIndexStart, turnIndexEnd)
+            .then(deletedNames => {
+                if (deletedNames.length > 0) {
+                    console.log(`[人物图谱] ✅ 回滚删除了 ${deletedNames.length} 个人物`);
+                }
+            })
+            .catch(err => console.warn('[人物图谱] 回滚删除失败:', err));
+    }
+    
     // 从UI中删除消息
     allSelectedUIMessages.forEach(msg => msg.remove());
     
@@ -1430,6 +1599,9 @@ function openConfigModal() {
     
     modal.classList.add('show');
     overlay.classList.add('show');
+    if (typeof updateServerStatusUI === 'function') {
+        updateServerStatusUI();
+    }
 }
 
 function closeConfigModal() {
@@ -1706,6 +1878,21 @@ async function loadSaveData(saveData) {
     
     // 📰 恢复手机论坛数据
     restoreMobileForumData(saveData.mobileForumData);
+    
+    // 🎭 恢复用户画像数据
+    if (saveData.userProfileData && window.userProfileAnalyzer) {
+        try {
+            await window.userProfileAnalyzer.importProfile(saveData.userProfileData);
+            console.log('[用户画像] ✅ 已从存档恢复用户画像');
+        } catch (e) {
+            console.warn('[用户画像] ⚠️ 恢复用户画像失败:', e);
+        }
+    }
+    
+    // 🃏 恢复 ACJT 卡牌系统数据
+    if (saveData.acjtData) {
+        restoreACJTData(saveData.acjtData);
+    }
 
     // 重新渲染游戏历史
     const historyDiv = document.getElementById('gameHistory');

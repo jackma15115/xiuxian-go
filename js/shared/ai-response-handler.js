@@ -88,6 +88,10 @@ class AIResponseHandler {
                 options: ['重新生成', '尝试继续', '查看日志', '返回菜单', '保存退出']
             };
         }
+        
+        // 🔍 调试：打印解析后的 data 对象包含哪些字段
+        console.log('[AI响应] 📦 解析后的字段:', Object.keys(data));
+        console.log('[AI响应] 🖼️ data.img 存在?', 'img' in data, '值:', data.img ? data.img.substring(0, 80) : '无');
 
         // 更新变量（支持三种格式）
         if (data.variableUpdate) {
@@ -156,13 +160,66 @@ class AIResponseHandler {
             }
         }
 
-        // 添加到历史记录（保存剧情 + 原始响应/JSON）
+        // 处理特殊状态相关字段（specialStatus, status, mood, thought等）
+        try {
+            let needsUIUpdate = false;
+            
+            // 1. 处理 specialStatus 字段（特殊状态对象）
+            if (data.specialStatus && typeof data.specialStatus === 'object') {
+                if (!this.gameState.variables.specialStatus) {
+                    this.gameState.variables.specialStatus = {};
+                }
+                this.deepMerge(this.gameState.variables.specialStatus, data.specialStatus);
+                console.log('[特殊状态] 📊 从specialStatus字段更新:', data.specialStatus);
+                needsUIUpdate = true;
+            }
+            
+            // 2. 处理 status 字段（当前状态描述）
+            if (data.status !== undefined) {
+                if (!this.gameState.variables.protagonist) {
+                    this.gameState.variables.protagonist = {};
+                }
+                this.gameState.variables.protagonist.status = data.status;
+                console.log('[特殊状态] 📍 主角状态更新:', data.status);
+                needsUIUpdate = true;
+            }
+            
+            // 3. 处理 mood 字段（心情）
+            if (data.mood !== undefined) {
+                if (!this.gameState.variables.protagonist) {
+                    this.gameState.variables.protagonist = {};
+                }
+                this.gameState.variables.protagonist.mood = data.mood;
+                console.log('[特殊状态] 💭 主角心情更新:', data.mood);
+                needsUIUpdate = true;
+            }
+            
+            // 4. 处理 thought 字段（内心想法）
+            if (data.thought !== undefined) {
+                if (!this.gameState.variables.protagonist) {
+                    this.gameState.variables.protagonist = {};
+                }
+                this.gameState.variables.protagonist.thought = data.thought;
+                console.log('[特殊状态] 💭 主角想法更新:', data.thought);
+                needsUIUpdate = true;
+            }
+            
+            // 如果有更新，刷新UI
+            if (needsUIUpdate) {
+                updateStatusPanel();
+            }
+        } catch (error) {
+            console.error('❌ 特殊状态字段处理失败:', error);
+        }
+
+        // 添加到历史记录（保存剧情 + 原始响应/JSON + imgPrompt）
         if (data.story) {
             this.gameState.conversationHistory.push({
                 role: 'assistant',
                 content: data.story,
                 rawResponse: response,
-                parsed: data
+                parsed: data,
+                imgPrompt: data.img || null  // 🎨 保存图片提示词用于存档恢复
             });
 
             // 保存当前变量快照
@@ -176,8 +233,9 @@ class AIResponseHandler {
         if (this.config.hasCombatSystem && this.config.combatParser) {
             this.handleCombatDetection(data);
         } else {
-            // 正常显示消息
-            displayAIMessage(data.story, data.options, data.reasoning);
+            // 正常显示消息（传入 img 字段用于 NovelAI 生图）
+            console.log('[AI响应] 🖼️ img 字段:', data.img ? data.img.substring(0, 50) + '...' : '无');
+            displayAIMessage(data.story, data.options, data.reasoning, data.img);
             
             // 保存游戏历史到 IndexedDB
             saveGameHistory().catch(err => console.error('保存历史失败:', err));
@@ -204,8 +262,9 @@ class AIResponseHandler {
             window.pendingCombatInfo = null;
         }
         
-        // 正常显示消息（包含战斗选项）
-        displayAIMessage(data.story, data.options, data.reasoning);
+        // 正常显示消息（包含战斗选项，传入 img 字段用于 NovelAI 生图）
+        console.log('[AI响应-战斗分支] 🖼️ img 字段:', data.img ? data.img.substring(0, 50) + '...' : '无');
+        displayAIMessage(data.story, data.options, data.reasoning, data.img);
         
         // 保存游戏历史
         saveGameHistory().catch(err => console.error('保存历史失败:', err));

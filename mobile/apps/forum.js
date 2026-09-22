@@ -75,8 +75,11 @@ window.forumApi = {
         const cachedPosts = Object.values(window.forumApi.postsCache);
         console.log('[📰论坛] 显示本地帖子，缓存数量:', cachedPosts.length);
         
-        // 如果有缓存，按标签筛选后显示
+        // 如果有缓存，按获取时间排序（新的在前面），然后按标签筛选后显示
         if (cachedPosts.length > 0) {
+            // 🆕 按获取时间排序，新帖子在最上面
+            cachedPosts.sort((a, b) => (b._fetchTime || 0) - (a._fetchTime || 0));
+            
             let filtered = cachedPosts;
             if (tag) {
                 filtered = cachedPosts.filter(p => p.tag === tag);
@@ -244,9 +247,36 @@ window.forumApi = {
         
         switch (data.type) {
             case 'postList':
-                window.forumApi.renderPostList(data.posts || []);
+                // 🆕 合并新帖子到缓存，而不是覆盖
+                const newPosts = data.posts || [];
+                const existingIds = new Set(Object.keys(window.forumApi.postsCache));
+                
+                // 为新帖子添加时间戳（用于排序）
+                newPosts.forEach(post => {
+                    if (!existingIds.has(post.id)) {
+                        post._fetchTime = Date.now(); // 标记获取时间，新的在前面
+                    }
+                    window.forumApi.postsCache[post.id] = post;
+                    // 缓存评论
+                    if (post.comments && post.comments.length > 0) {
+                        window.forumApi.commentsCache[post.id] = post.comments;
+                    }
+                });
+                
+                // 获取所有帖子并按获取时间排序（新的在前面）
+                const allPosts = Object.values(window.forumApi.postsCache);
+                allPosts.sort((a, b) => (b._fetchTime || 0) - (a._fetchTime || 0));
+                
+                // 按当前标签筛选
+                let filteredPosts = allPosts;
+                if (window.forumApi.currentTag) {
+                    filteredPosts = allPosts.filter(p => p.tag === window.forumApi.currentTag);
+                }
+                
+                window.forumApi.renderPostList(filteredPosts);
                 // 保存AI生成的帖子数据
                 window.forumApi.saveToStorage();
+                console.log(`[📰论坛] 刷新完成，新增 ${newPosts.filter(p => !existingIds.has(p.id)).length} 个帖子，总计 ${allPosts.length} 个`);
                 break;
             case 'postDetail':
                 window.forumApi.renderPostDetail(data.post, data.comments || []);
@@ -274,20 +304,14 @@ window.forumApi = {
                 <div class="forum-empty">
                     <div class="empty-icon">📭</div>
                     <div class="empty-text">// 暂无帖子</div>
-                    <div class="empty-hint">点击右上角 + 发布第一个帖子</div>
+                    <div class="empty-hint">点击右上角 + 发布第一个帖子，或点击 🔄 刷新获取新帖</div>
                 </div>
             `;
             return;
         }
         
-        // 缓存帖子数据和评论
-        posts.forEach(post => {
-            window.forumApi.postsCache[post.id] = post;
-            // 如果帖子包含评论，也缓存评论
-            if (post.comments && post.comments.length > 0) {
-                window.forumApi.commentsCache[post.id] = post.comments;
-            }
-        });
+        // 🆕 注意：缓存逻辑已移到 handleAIResponse 中统一处理
+        // 这里只负责渲染，不再重复缓存
         
         let html = '';
         posts.forEach(post => {
@@ -728,7 +752,7 @@ window.forumApi = {
     sharePost: function(postId) {
         const post = window.forumApi.postsCache[postId];
         if (post) {
-            const text = `【${post.tag}】${post.title}\n作者: ${post.author?.name}\n来自修仙论坛`;
+            const text = `【${post.tag}】${post.title}\n作者: ${post.author?.name}`;
             if (navigator.clipboard) {
                 navigator.clipboard.writeText(text);
                 alert('已复制到剪贴板');
